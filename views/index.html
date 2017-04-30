@@ -1,0 +1,80 @@
+{{ define "index" }}
+<!DOCTYPE html>
+<html>
+	<head>
+		<link href="/static/css/bootstrap.min.css" rel="stylesheet">
+		<!-- https://github.com/bassjobsen/typeahead.js-bootstrap-css -->
+		<link href="/static/css/typeaheadjs.css" rel="stylesheet">
+		<style>
+			.tt-menu {
+				max-height: 250px;
+				overflow-y: auto;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container-fluid">
+			<h1>Scan</h1>
+			<form role="search" action="/" method="GET">
+				<div class="input-group col-md-2">
+					<input type="text" class="form-control" id="ip" name="ip" placeholder="Search for IP" autocomplete="off">
+
+					<span class="input-group-btn">
+						<button type="submit" class="btn btn-default"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+					</span>
+				</div>
+			</form>
+			<div class="main">
+				<div class="table-responsive">
+					<table class="table table-striped">
+						<thead>
+							<tr>
+								<th></td>
+								<th>IP</th>
+								<th>Port</th>
+								<th>Proto</th>
+								<th>First Seen</th>
+								<th>Last Seen</th>
+							</tr>
+						</thead>
+						<tbody>
+							{{- range . }}
+							<tr>
+								<td>{{ if .New }}<span class="label label-danger">New</span>{{ end }}</td>
+								<td>{{ .IP }}</td>
+								<td>{{ .Port }}</td>
+								<td>{{ .Proto }}</td>
+								<td>{{ .FirstSeen }}</td>
+								<td>{{ .LastSeen }}</td>
+							</tr>
+							{{- end }}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+		<script src="/static/js/jquery-3.2.1.min.js"></script>
+		<script src="/static/js/bootstrap.min.js"></script>
+		<script src="/static/js/typeahead.bundle.js"></script>
+		<script>
+			$(document).ready(function() {
+				var ips = new Bloodhound({
+					datumTokenizer: Bloodhound.tokenizers.whitespace,
+					queryTokenizer: Bloodhound.tokenizers.whitespace,
+					prefetch: '/ips.json',
+					ttl: 1200000
+				});
+
+				$('#ip').typeahead({
+					hint: true,
+					highlight: true
+				}, {
+					name: 'ips',
+					limit: 10,
+					source: ips,
+				});
+			});
+		</script>
+	</body>
+</html>
+{{ end }}
