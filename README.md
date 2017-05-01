@@ -19,8 +19,8 @@ a JSON array of Masscan results.
 Note that Masscan generates incorrect JSON data. It looks like:
 
 ```json
-{ "ip": "192.168.0.1", "ports": [ {"port": 80, "proto": "tcp", "status": "open"} ],
-{ "ip": "192.168.0.1", "ports": [ {"port": 443, "proto": "tcp", "status": "open"} ],
+{ "ip": "192.168.0.1", "ports": [ {"port": 80, "proto": "tcp", "status": "open"} ] },
+{ "ip": "192.168.0.1", "ports": [ {"port": 443, "proto": "tcp", "status": "open"} ] },
 {finished: 1}
 ```
 
@@ -29,7 +29,7 @@ This must be fixed before POSTing the data.
 
 ```json
 [
-{ "ip": "192.168.0.1", "ports": [ {"port": 80, "proto": "tcp", "status": "open"} ],
-{ "ip": "192.168.0.1", "ports": [ {"port": 443, "proto": "tcp", "status": "open"} ]
+{ "ip": "192.168.0.1", "ports": [ {"port": 80, "proto": "tcp", "status": "open"} ] },
+{ "ip": "192.168.0.1", "ports": [ {"port": 443, "proto": "tcp", "status": "open"} ] }
 ]
 ```
