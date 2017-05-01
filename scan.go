@@ -159,17 +159,44 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 	return t.templates.ExecuteTemplate(w, name, data)
 }
 
+type indexData struct {
+	Total   int
+	Latest  int
+	Results []scandata
+}
+
 // Handler for GET /
 func index(c echo.Context) error {
 	ip := c.QueryParam("ip")
-	data, err := load(ip)
+	results, err := load(ip)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 	}
+
+	data := indexData{Results: results, Total: len(results)}
+
+	timeFmt := "2006-01-02 15:04"
+
+	// Find all the latest results and store the number in the struct
+	var latest time.Time
+	for _, r := range results {
+		last, _ := time.Parse(timeFmt, r.LastSeen)
+		if last.After(latest) {
+			latest = last
+		}
+	}
+	for _, r := range results {
+		last, _ := time.Parse(timeFmt, r.LastSeen)
+		if last.Equal(latest) {
+			data.Latest++
+		}
+	}
+
 	return c.Render(http.StatusOK, "index", data)
 }
 
 // Handler for GET /ips.json
+// This is used as the prefetch for Typeahead.js
 func ips(c echo.Context) error {
 	data, err := load("")
 	if err != nil {
