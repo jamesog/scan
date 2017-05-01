@@ -33,3 +33,9 @@ This must be fixed before POSTing the data.
 { "ip": "192.168.0.1", "ports": [ {"port": 443, "proto": "tcp", "status": "open"} ] }
 ]
 ```
+
+You can fix it by using `sed`:
+
+```
+sed -e '/,$/h;g;$s/,$//' -e '1i [' -e '$a ]'
+```
