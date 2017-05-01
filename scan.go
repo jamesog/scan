@@ -2,11 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"time"
+
+	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
@@ -196,11 +199,26 @@ func recvResults(c echo.Context) error {
 }
 
 func main() {
+	httpAddr := flag.String("http.addr", ":80", "HTTP address:port")
+	httpsAddr := flag.String("https.addr", ":443", "HTTPS address:port")
+	tls := flag.Bool("tls", false, "Enable AutoTLS")
+	tlsHostname := flag.String("tls.hostname", "", "(Optional) Hostname to restrict AutoTLS")
+	flag.Parse()
+
 	t := &Template{
 		templates: template.Must(template.ParseGlob("views/*.html")),
 	}
 
 	e := echo.New()
+
+	if *tls {
+		if *tlsHostname != "" {
+			e.AutoTLSManager.HostPolicy = autocert.HostWhitelist(*tlsHostname)
+		}
+		e.AutoTLSManager.Cache = autocert.DirCache(".cache")
+		e.Pre(middleware.HTTPSRedirect())
+	}
+
 	e.Renderer = t
 	e.Use(middleware.Logger())
 	e.GET("/", index)
@@ -208,5 +226,9 @@ func main() {
 	e.POST("/results", recvResults)
 	e.Static("/static", "static")
 
-	e.Logger.Fatal(e.Start(":8080"))
+	if *tls {
+		go func() { e.Logger.Fatal(e.Start(*httpAddr)) }()
+		e.Logger.Fatal(e.StartAutoTLS(*httpsAddr))
+	}
+	e.Logger.Fatal(e.Start(*httpAddr))
 }
