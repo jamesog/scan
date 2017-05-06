@@ -69,15 +69,26 @@ func load(s string) ([]scandata, error) {
 	var data []scandata
 	var ip, proto, firstseen, lastseen string
 	var port int
+	var latest time.Time
 
 	for rows.Next() {
 		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
 		if err != nil {
 			return []scandata{}, err
 		}
-		f, _ := time.Parse("2006-01-02 15:04", firstseen)
-		l, _ := time.Parse("2006-01-02 15:04", lastseen)
-		data = append(data, scandata{ip, port, proto, firstseen, lastseen, l.Equal(f)})
+		last, _ := time.Parse("2006-01-02 15:04", lastseen)
+		if last.After(latest) {
+			latest = last
+		}
+		data = append(data, scandata{ip, port, proto, firstseen, lastseen, false})
+	}
+
+	for i := range data {
+		f, _ := time.Parse("2006-01-02 15:04", data[i].FirstSeen)
+		l, _ := time.Parse("2006-01-02 15:04", data[i].LastSeen)
+		if f.Equal(l) && l == latest {
+			data[i].New = true
+		}
 	}
 
 	return data, nil
