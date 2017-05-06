@@ -173,6 +173,7 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 type indexData struct {
 	Total   int
 	Latest  int
+	New     int
 	Results []scandata
 }
 
@@ -200,6 +201,9 @@ func index(c echo.Context) error {
 		last, _ := time.Parse(timeFmt, r.LastSeen)
 		if last.Equal(latest) {
 			data.Latest++
+		}
+		if r.New {
+			data.New++
 		}
 	}
 
