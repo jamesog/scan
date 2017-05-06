@@ -1,6 +1,6 @@
 # Scan
 
-Scan is a small web service for recording and displaying Masscan results.
+Scan is a small web service for recording and displaying [Masscan](https://github.com/robertdavidgraham/masscan) results.
 
 ## Database
 
