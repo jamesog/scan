@@ -22,7 +22,7 @@ Authentication is with Google OAuth2. You should create credentials for the appl
 * Select Web application
 * Enter a name for the application (e.g. Scan)
 * Add the /auth URI to Authorized redirect URIs
-  e.g. https://scan.example.com/auth
+  (e.g. https://scan.example.com/auth)
 * Download the JSON file containing the credentials
 
 The JSON file should be called `client_secret.json` in the same direction as the `scan` binary.
@@ -48,7 +48,7 @@ Note that Masscan generates incorrect JSON data. It looks like:
 {finished: 1}
 ```
 
-That is, it is missing surround `[ ]` and the last line is not valid JSON.
+That is, it is missing the surrounding `[ ]` and the last line is not valid JSON.
 This must be fixed before POSTing the data.
 
 ```json
