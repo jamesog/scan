@@ -13,9 +13,11 @@ import (
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"github.com/labstack/gommon/color"
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var authDisabled bool
 var dbFile = "scan.db"
 
 type port struct {
@@ -171,21 +173,36 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 }
 
 type indexData struct {
-	Total   int
-	Latest  int
-	New     int
-	Results []scandata
+	Authenticated bool
+	User          string
+	Total         int
+	Latest        int
+	New           int
+	Results       []scandata
 }
 
 // Handler for GET /
 func index(c echo.Context) error {
+	var user string
+	if !authDisabled {
+		session, err := store.Get(c.Request(), "user")
+		if err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		if _, ok := session.Values["user"]; !ok {
+			data := indexData{}
+			return c.Render(http.StatusOK, "index", data)
+		}
+		user = session.Values["user"].(string)
+	}
+
 	ip := c.QueryParam("ip")
 	results, err := load(ip)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
-	data := indexData{Results: results, Total: len(results)}
+	data := indexData{Authenticated: true, User: user, Results: results, Total: len(results)}
 
 	timeFmt := "2006-01-02 15:04"
 
@@ -241,6 +258,7 @@ func recvResults(c echo.Context) error {
 }
 
 func main() {
+	flag.BoolVar(&authDisabled, "no-auth", false, "Disable authentication")
 	httpAddr := flag.String("http.addr", ":80", "HTTP address:port")
 	httpsAddr := flag.String("https.addr", ":443", "HTTPS address:port")
 	tls := flag.Bool("tls", false, "Enable AutoTLS")
@@ -253,6 +271,10 @@ func main() {
 
 	e := echo.New()
 
+	if authDisabled {
+		color.Println(color.Red("Authentication Disabled"))
+	}
+
 	if *tls {
 		if *tlsHostname != "" {
 			e.AutoTLSManager.HostPolicy = autocert.HostWhitelist(*tlsHostname)
@@ -264,6 +286,8 @@ func main() {
 	e.Renderer = t
 	e.Use(middleware.Logger())
 	e.GET("/", index)
+	e.GET("/auth", authHandler)
+	e.GET("/login", loginHandler)
 	e.GET("/ips.json", ips)
 	e.POST("/results", recvResults)
 	e.Static("/static", "static")

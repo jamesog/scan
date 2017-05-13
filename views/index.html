@@ -25,12 +25,13 @@
 					<span class="navbar-brand">Scan</span>
 				</div>
 				<div id="navbar" class="collapse navbar-collapse">
+					{{- if .Authenticated }}
 					<ul class="nav navbar-nav">
 						<li><p class="navbar-text">Total <span class="badge alert-info">{{ .Total }}</span></p></li>
 						<li><p class="navbar-text">Latest <span class="badge alert-warning">{{ .Latest }}</span></p></li>
 						<li><p class="navbar-text">New <span class="badge alert-danger">{{ .New }}</span></p></li>
 					</ul>
-					<form class="navbar-form" role="search" action="/" method="GET">
+					<form class="navbar-form navbar-left" role="search" action="/" method="GET">
 						<div class="col-md-2">
 							<div class="input-group">
 								<input type="text" class="form-control" id="ip" name="ip" placeholder="Search for IP" autocomplete="off">
@@ -41,6 +42,16 @@
 							</div>
 						</div>
 					</form>
+						{{- if ne .User "" }}
+					<ul class="nav navbar-nav navbar-right">
+						<li><p class="navbar-text">{{ .User }}</p></li>
+					</ul>
+						{{- end }}
+					{{- else }}
+					<ul class="nav navbar-nav navbar-right">
+						<li><a href="/login">Login</a></li>
+					</ul>
+					{{- end }}
 				</div>
 			</div>
 		</nav>

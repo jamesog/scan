@@ -9,7 +9,31 @@ Scan stores results in a SQLite database. To initialise it, run:
 ```
 sqlite3 scan.db
 CREATE TABLE scan (ip text, port integer, proto text, firstseen text, lastseen text);
+CREATE TABLE users (email text);
 ```
+
+## Authentication & Authorization
+
+By default the data will not be displayed unless a user has been authenticated and authorized.
+
+Authentication is with Google OAuth2. You should create credentials for the application at https://console.cloud.google.com/apis/credentials
+
+* Click the down arrow next to Create credentials
+* Select Web application
+* Enter a name for the application (e.g. Scan)
+* Add the /auth URI to Authorized redirect URIs
+  e.g. https://scan.example.com/auth
+* Download the JSON file containing the credentials
+
+The JSON file should be called `client_secret.json` in the same direction as the `scan` binary.
+
+Add the email address of each user to be permitted access to the `users` table in the database.
+
+```
+INSERT INTO users (email) VALUES ('alice@example.com');
+```
+
+If you want to disable authentication use the `-no-auth` flag.
 
 ## Importing data
 

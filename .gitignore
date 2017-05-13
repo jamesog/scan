@@ -1,3 +1,5 @@
 scan
 scan.db
 .*.swp
+.cookie_key
+client_secret.json
