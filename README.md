@@ -39,3 +39,9 @@ You can fix it by using `sed`:
 ```
 sed -e '/,$/h;g;$s/,$//' -e '1i [' -e '$a ]'
 ```
+
+And then send it to the server:
+
+```
+curl -H "Content-Type: application/json" -d @data.json https://scan.example.com/results
+```
