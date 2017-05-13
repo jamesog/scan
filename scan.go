@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/acme/autocert"
@@ -47,7 +48,7 @@ type scandata struct {
 }
 
 // Load all data for displaying in the browser
-func load(s string) ([]scandata, error) {
+func load(s, fs, ls string) ([]scandata, error) {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return []scandata{}, err
@@ -55,13 +56,26 @@ func load(s string) ([]scandata, error) {
 	defer db.Close()
 
 	var where string
+	var cond []string
+	var params []interface{}
 	if s != "" {
-		where = `WHERE ip LIKE ?`
-		s = fmt.Sprintf("%%%s%%", s)
+		cond = append(cond, `ip LIKE ?`)
+		params = append(params, fmt.Sprintf("%%%s%%", s))
+	}
+	if fs != "" {
+		cond = append(cond, `firstseen= ?`)
+		params = append(params, fs)
+	}
+	if ls != "" {
+		cond = append(cond, `lastseen= ?`)
+		params = append(params, ls)
+	}
+	if len(cond) > 0 {
+		where = fmt.Sprintf("WHERE %s", strings.Join(cond, " AND "))
 	}
 
 	qry := fmt.Sprintf(`SELECT ip, port, proto, firstseen, lastseen FROM scan %s ORDER BY port, proto, ip, lastseen`, where)
-	rows, err := db.Query(qry, s)
+	rows, err := db.Query(qry, params...)
 	if err != nil {
 		return []scandata{}, err
 	}
@@ -178,6 +192,7 @@ type indexData struct {
 	Total         int
 	Latest        int
 	New           int
+	LastSeen      string
 	Results       []scandata
 }
 
@@ -197,7 +212,9 @@ func index(c echo.Context) error {
 	}
 
 	ip := c.QueryParam("ip")
-	results, err := load(ip)
+	firstSeen := c.QueryParam("firstseen")
+	lastSeen := c.QueryParam("lastseen")
+	results, err := load(ip, firstSeen, lastSeen)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -223,6 +240,7 @@ func index(c echo.Context) error {
 			data.New++
 		}
 	}
+	data.LastSeen = latest.Format(timeFmt)
 
 	return c.Render(http.StatusOK, "index", data)
 }
@@ -230,7 +248,7 @@ func index(c echo.Context) error {
 // Handler for GET /ips.json
 // This is used as the prefetch for Typeahead.js
 func ips(c echo.Context) error {
-	data, err := load("")
+	data, err := load("", "", "")
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 	}
