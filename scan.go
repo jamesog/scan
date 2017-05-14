@@ -38,7 +38,7 @@ type result struct {
 }
 
 // Data retrieved from the database for display
-type scandata struct {
+type ipInfo struct {
 	IP        string
 	Port      int
 	Proto     string
@@ -48,10 +48,10 @@ type scandata struct {
 }
 
 // Load all data for displaying in the browser
-func load(s, fs, ls string) ([]scandata, error) {
+func load(s, fs, ls string) ([]ipInfo, error) {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
-		return []scandata{}, err
+		return []ipInfo{}, err
 	}
 	defer db.Close()
 
@@ -77,12 +77,12 @@ func load(s, fs, ls string) ([]scandata, error) {
 	qry := fmt.Sprintf(`SELECT ip, port, proto, firstseen, lastseen FROM scan %s ORDER BY port, proto, ip, lastseen`, where)
 	rows, err := db.Query(qry, params...)
 	if err != nil {
-		return []scandata{}, err
+		return []ipInfo{}, err
 	}
 
 	defer rows.Close()
 
-	var data []scandata
+	var data []ipInfo
 	var ip, proto, firstseen, lastseen string
 	var port int
 	var latest time.Time
@@ -90,13 +90,13 @@ func load(s, fs, ls string) ([]scandata, error) {
 	for rows.Next() {
 		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
 		if err != nil {
-			return []scandata{}, err
+			return []ipInfo{}, err
 		}
 		last, _ := time.Parse("2006-01-02 15:04", lastseen)
 		if last.After(latest) {
 			latest = last
 		}
-		data = append(data, scandata{ip, port, proto, firstseen, lastseen, false})
+		data = append(data, ipInfo{ip, port, proto, firstseen, lastseen, false})
 	}
 
 	for i := range data {
@@ -193,7 +193,7 @@ type indexData struct {
 	Latest        int
 	New           int
 	LastSeen      string
-	Results       []scandata
+	Results       []ipInfo
 }
 
 // Handler for GET /
