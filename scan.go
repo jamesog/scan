@@ -189,11 +189,49 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 type indexData struct {
 	Authenticated bool
 	User          string
-	Total         int
-	Latest        int
-	New           int
-	LastSeen      string
-	Results       []ipInfo
+	scanData
+}
+
+type scanData struct {
+	Total    int
+	Latest   int
+	New      int
+	LastSeen string
+	Results  []ipInfo
+}
+
+func resultData(ip, fs, ls string) (scanData, error) {
+	results, err := load(ip, fs, ls)
+	if err != nil {
+		return scanData{}, err
+	}
+
+	timeFmt := "2006-01-02 15:04"
+	data := scanData{
+		Results: results,
+		Total:   len(results),
+	}
+
+	// Find all the latest results and store the number in the struct
+	var latest time.Time
+	for _, r := range results {
+		last, _ := time.Parse(timeFmt, r.LastSeen)
+		if last.After(latest) {
+			latest = last
+		}
+	}
+	for _, r := range results {
+		last, _ := time.Parse(timeFmt, r.LastSeen)
+		if last.Equal(latest) {
+			data.Latest++
+		}
+		if r.New {
+			data.New++
+		}
+	}
+	data.LastSeen = latest.Format(timeFmt)
+
+	return data, nil
 }
 
 // Handler for GET /
@@ -214,33 +252,13 @@ func index(c echo.Context) error {
 	ip := c.QueryParam("ip")
 	firstSeen := c.QueryParam("firstseen")
 	lastSeen := c.QueryParam("lastseen")
-	results, err := load(ip, firstSeen, lastSeen)
+
+	results, err := resultData(ip, firstSeen, lastSeen)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
-	data := indexData{Authenticated: true, User: user, Results: results, Total: len(results)}
-
-	timeFmt := "2006-01-02 15:04"
-
-	// Find all the latest results and store the number in the struct
-	var latest time.Time
-	for _, r := range results {
-		last, _ := time.Parse(timeFmt, r.LastSeen)
-		if last.After(latest) {
-			latest = last
-		}
-	}
-	for _, r := range results {
-		last, _ := time.Parse(timeFmt, r.LastSeen)
-		if last.Equal(latest) {
-			data.Latest++
-		}
-		if r.New {
-			data.New++
-		}
-	}
-	data.LastSeen = latest.Format(timeFmt)
+	data := indexData{Authenticated: true, User: user, scanData: results}
 
 	return c.Render(http.StatusOK, "index", data)
 }
