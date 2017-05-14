@@ -1,10 +1,16 @@
-memo = "eaedf9f9407d3570d0b6e3bb38d3ff61272d42e217e8a38bb1ff60a195111d1a"
+memo = "74a6a51ff401e11640943aaee347a9107022e8e99863fa28be79e9a7658384bf"
 
 [[projects]]
   name = "cloud.google.com/go"
   packages = ["compute/metadata","internal"]
   revision = "2e6a95edb1071d750f6d7db777bf66cd2997af6c"
   version = "v0.7.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/beorn7/perks"
+  packages = ["quantile"]
+  revision = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 
 [[projects]]
   name = "github.com/dgrijalva/jwt-go"
@@ -16,7 +22,7 @@ memo = "eaedf9f9407d3570d0b6e3bb38d3ff61272d42e217e8a38bb1ff60a195111d1a"
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto","ptypes/any"]
-  revision = "18c9bb3261723cd5401db4d0c9fbc5c3b6c70fe8"
+  revision = "fec3b39b059c0f88fa6b20f5ed012b1aa203a8b4"
 
 [[projects]]
   branch = "master"
@@ -46,13 +52,13 @@ memo = "eaedf9f9407d3570d0b6e3bb38d3ff61272d42e217e8a38bb1ff60a195111d1a"
   branch = "master"
   name = "github.com/labstack/echo"
   packages = [".","middleware"]
-  revision = "533d7a8dc147b3c9ebc09726c6bc5e32857392cd"
+  revision = "cb9255e7754a2e281d46a21241baba5f5765c7b6"
 
 [[projects]]
   name = "github.com/labstack/gommon"
   packages = ["bytes","color","log","random"]
-  revision = "9cedb429ffbe71a32a3ae7c65fd109cb7ae07804"
-  version = "v0.2.0"
+  revision = "1121fd3e243c202482226a7afe4dcd07ffc4139a"
+  version = "v0.2.1"
 
 [[projects]]
   name = "github.com/mattn/go-colorable"
@@ -73,6 +79,36 @@ memo = "eaedf9f9407d3570d0b6e3bb38d3ff61272d42e217e8a38bb1ff60a195111d1a"
   revision = "cf7286f069c3ef596efcc87781a4653a2e7607bd"
 
 [[projects]]
+  name = "github.com/matttproud/golang_protobuf_extensions"
+  packages = ["pbutil"]
+  revision = "3247c84500bff8d9fb6d579d800f20b3e091582c"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/prometheus/client_golang"
+  packages = ["prometheus","prometheus/promhttp"]
+  revision = "c5b7fccd204277076155f10851dad72b76a49317"
+  version = "v0.8.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/client_model"
+  packages = ["go"]
+  revision = "6f3806018612930941127f2a7c6c453ba2c527d2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/common"
+  packages = ["expfmt","internal/bitbucket.org/ww/goautoneg","model"]
+  revision = "13ba4ddd0caa9c28ca7b7bffe1dfa9ed8d5ef207"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/prometheus/procfs"
+  packages = [".","xfs"]
+  revision = "d098ca18df8bc825079013daf7bacefbb1ee877e"
+
+[[projects]]
   branch = "master"
   name = "github.com/valyala/bytebufferpool"
   packages = ["."]
@@ -88,31 +124,31 @@ memo = "eaedf9f9407d3570d0b6e3bb38d3ff61272d42e217e8a38bb1ff60a195111d1a"
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["acme","acme/autocert"]
-  revision = "c7af5bf2638a1164f2eb5467c39c6cffbd13a02e"
+  revision = "ab89591268e0c8b748cbe4047b00197516011af5"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","context/ctxhttp","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
-  revision = "da118f7b8e5954f39d0d2130ab35d4bf0e3cb344"
+  revision = "84f0e6f92b10139f986b1756e149a7d9de270cdc"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/oauth2"
   packages = [".","google","internal","jws","jwt"]
-  revision = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4"
+  revision = "ad516a297a9f2a74ecc244861b298c94bdd28b9d"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "9ccfe848b9db8435a24c424abbc07a921adf1df5"
+  revision = "f845067cf72a21fb4929b0e6a35273bd83b56396"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["internal/gen","internal/triegen","internal/ucd","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
-  revision = "470f45bf29f4147d6fbd7dfd0a02a848e49f5bf4"
+  revision = "19e51611da83d6be54ddafce4a4af510cb3e9ea4"
 
 [[projects]]
   name = "google.golang.org/appengine"
