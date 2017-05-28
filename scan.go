@@ -87,15 +87,18 @@ func load(s, fs, ls string) ([]ipInfo, error) {
 	defer rows.Close()
 
 	var data []ipInfo
-	var ip, proto, firstseen, lastseen string
+	var ip, proto string
+	var firstseenUnix, lastseenUnix int
 	var port int
 	var latest time.Time
 
 	for rows.Next() {
-		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
+		err := rows.Scan(&ip, &port, &proto, &firstseenUnix, &lastseenUnix)
 		if err != nil {
 			return []ipInfo{}, err
 		}
+		firstseen := time.Unix(int64(firstseenUnix), 0).Format(dateTime)
+		lastseen := time.Unix(int64(lastseenUnix), 0).Format(dateTime)
 		last, _ := time.Parse(dateTime, lastseen)
 		if last.After(latest) {
 			latest = last
@@ -143,7 +146,7 @@ func save(results []result) error {
 		return err
 	}
 
-	now := time.Now().Format(dateTime)
+	now := time.Now().Unix()
 
 	for _, r := range results {
 		// Although it's an array, only one port is in each
