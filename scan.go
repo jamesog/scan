@@ -327,6 +327,7 @@ func main() {
 		e.Pre(middleware.HTTPSRedirect())
 	}
 
+	e.HideBanner = true
 	e.Renderer = t
 	e.Use(middleware.Logger())
 	e.GET("/", index)
