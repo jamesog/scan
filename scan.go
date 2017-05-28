@@ -19,6 +19,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// Human-readable date-time format
+const dateTime = "2006-01-02 15:04"
+
 var authDisabled bool
 var dbFile = "scan.db"
 
@@ -93,7 +96,7 @@ func load(s, fs, ls string) ([]ipInfo, error) {
 		if err != nil {
 			return []ipInfo{}, err
 		}
-		last, _ := time.Parse("2006-01-02 15:04", lastseen)
+		last, _ := time.Parse(dateTime, lastseen)
 		if last.After(latest) {
 			latest = last
 		}
@@ -101,8 +104,8 @@ func load(s, fs, ls string) ([]ipInfo, error) {
 	}
 
 	for i := range data {
-		f, _ := time.Parse("2006-01-02 15:04", data[i].FirstSeen)
-		l, _ := time.Parse("2006-01-02 15:04", data[i].LastSeen)
+		f, _ := time.Parse(dateTime, data[i].FirstSeen)
+		l, _ := time.Parse(dateTime, data[i].LastSeen)
 		if f.Equal(l) && l == latest {
 			data[i].New = true
 		}
@@ -140,8 +143,7 @@ func save(results []result) error {
 		return err
 	}
 
-	now := time.Now()
-	nowString := now.Format("2006-01-02 15:04")
+	now := time.Now().Format(dateTime)
 
 	for _, r := range results {
 		// Although it's an array, only one port is in each
@@ -162,7 +164,7 @@ func save(results []result) error {
 		err := qry.QueryRow(r.IP, port.Port, port.Proto).Scan(&x)
 		switch {
 		case err == sql.ErrNoRows:
-			_, err = insert.Exec(r.IP, port.Port, port.Proto, nowString, nowString)
+			_, err = insert.Exec(r.IP, port.Port, port.Proto, now, now)
 			if err != nil {
 				txn.Rollback()
 				return err
@@ -173,7 +175,7 @@ func save(results []result) error {
 			return err
 		}
 
-		_, err = update.Exec(nowString, r.IP, port.Port, port.Proto)
+		_, err = update.Exec(now, r.IP, port.Port, port.Proto)
 		if err != nil {
 			txn.Rollback()
 			return err
@@ -214,7 +216,6 @@ func resultData(ip, fs, ls string) (scanData, error) {
 		return scanData{}, err
 	}
 
-	timeFmt := "2006-01-02 15:04"
 	data := scanData{
 		Results: results,
 		Total:   len(results),
@@ -223,13 +224,13 @@ func resultData(ip, fs, ls string) (scanData, error) {
 	// Find all the latest results and store the number in the struct
 	var latest time.Time
 	for _, r := range results {
-		last, _ := time.Parse(timeFmt, r.LastSeen)
+		last, _ := time.Parse(dateTime, r.LastSeen)
 		if last.After(latest) {
 			latest = last
 		}
 	}
 	for _, r := range results {
-		last, _ := time.Parse(timeFmt, r.LastSeen)
+		last, _ := time.Parse(dateTime, r.LastSeen)
 		if last.Equal(latest) {
 			data.Latest++
 		}
@@ -237,7 +238,7 @@ func resultData(ip, fs, ls string) (scanData, error) {
 			data.New++
 		}
 	}
-	data.LastSeen = latest.Format(timeFmt)
+	data.LastSeen = latest.Format(dateTime)
 
 	return data, nil
 }
