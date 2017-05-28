@@ -1,0 +1,28 @@
+{{- define "footer" }}
+			</div> <!-- main -->
+		</div> <!-- container-fluid -->
+		<script src="/static/js/jquery-3.2.1.min.js"></script>
+		<script src="/static/js/bootstrap.min.js"></script>
+		<script src="/static/js/typeahead.bundle.js"></script>
+		<script>
+			$(document).ready(function() {
+				var ips = new Bloodhound({
+					datumTokenizer: Bloodhound.tokenizers.whitespace,
+					queryTokenizer: Bloodhound.tokenizers.whitespace,
+					prefetch: '/ips.json',
+					ttl: 1200000
+				});
+
+				$('#ip').typeahead({
+					hint: true,
+					highlight: true
+				}, {
+					name: 'ips',
+					limit: 10,
+					source: ips,
+				});
+			});
+		</script>
+	</body>
+</html>
+{{- end }}
