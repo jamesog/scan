@@ -147,6 +147,13 @@ func save(results []result) error {
 		// Although it's an array, only one port is in each
 		port := r.Ports[0]
 
+		// Skip results which are (usually) banner-only
+		// While it would be nice to store banners, we need to restructure a
+		// bit to accommodate this and it just inserts duplicate data for now
+		if port.Status == "" || port.Service.Name != "" {
+			continue
+		}
+
 		// Search for the IP/port/proto combo
 		// If it exists, update `lastseen`, else insert a new record
 
