@@ -52,7 +52,7 @@ type ipInfo struct {
 }
 
 // Load all data for displaying in the browser
-func load(s, fs, ls string) ([]ipInfo, error) {
+func loadData(s, fs, ls string) ([]ipInfo, error) {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return []ipInfo{}, err
@@ -118,7 +118,7 @@ func load(s, fs, ls string) ([]ipInfo, error) {
 }
 
 // Save the results posted
-func save(results []result) error {
+func saveData(results []result) error {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return err
@@ -214,7 +214,7 @@ type scanData struct {
 }
 
 func resultData(ip, fs, ls string) (scanData, error) {
-	results, err := load(ip, fs, ls)
+	results, err := loadData(ip, fs, ls)
 	if err != nil {
 		return scanData{}, err
 	}
@@ -278,7 +278,7 @@ func index(c echo.Context) error {
 // Handler for GET /ips.json
 // This is used as the prefetch for Typeahead.js
 func ips(c echo.Context) error {
-	data, err := load("", "", "")
+	data, err := loadData("", "", "")
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -297,7 +297,7 @@ func recvResults(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
-	err = save(*res)
+	err = saveData(*res)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
