@@ -50,6 +50,20 @@ func (nt NullTime) Value() (driver.Value, error) {
 	return nt.Time, nil
 }
 
+// sqlFilter is for constructing data filters ("WHERE" clauses) in a SQL statement
+type sqlFilter struct {
+	Where  []string
+	Values []interface{}
+}
+
+// String constructs a SQL WHERE clause.
+func (f sqlFilter) String() string {
+	if len(f.Where) > 0 {
+		return "WHERE " + strings.Join(f.Where, " AND ")
+	}
+	return ""
+}
+
 type port struct {
 	Port    int    `json:"port"`
 	Proto   string `json:"proto"`
