@@ -91,34 +91,15 @@ type ipInfo struct {
 }
 
 // Load all data for displaying in the browser
-func loadData(s, fs, ls string) ([]ipInfo, error) {
+func loadData(filter sqlFilter) ([]ipInfo, error) {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return []ipInfo{}, err
 	}
 	defer db.Close()
 
-	var where string
-	var cond []string
-	var params []interface{}
-	if s != "" {
-		cond = append(cond, `ip LIKE ?`)
-		params = append(params, fmt.Sprintf("%%%s%%", s))
-	}
-	if fs != "" {
-		cond = append(cond, `firstseen= ?`)
-		params = append(params, fs)
-	}
-	if ls != "" {
-		cond = append(cond, `lastseen= ?`)
-		params = append(params, ls)
-	}
-	if len(cond) > 0 {
-		where = fmt.Sprintf("WHERE %s", strings.Join(cond, " AND "))
-	}
-
-	qry := fmt.Sprintf(`SELECT ip, port, proto, firstseen, lastseen FROM scan %s ORDER BY port, proto, ip, lastseen`, where)
-	rows, err := db.Query(qry, params...)
+	qry := fmt.Sprintf(`SELECT ip, port, proto, firstseen, lastseen FROM scan %s ORDER BY port, proto, ip, lastseen`, filter)
+	rows, err := db.Query(qry, filter.Values...)
 	if err != nil {
 		return []ipInfo{}, err
 	}
@@ -253,7 +234,21 @@ type scanData struct {
 }
 
 func resultData(ip, fs, ls string) (scanData, error) {
-	results, err := loadData(ip, fs, ls)
+	var filter sqlFilter
+	if ip != "" {
+		filter.Where = append(filter.Where, `ip LIKE ?`)
+		filter.Values = append(filter.Values, fmt.Sprintf("%%%s%%", ip))
+	}
+	if fs != "" {
+		filter.Where = append(filter.Where, `firstseen=?`)
+		filter.Values = append(filter.Values, fs)
+	}
+	if ls != "" {
+		filter.Where = append(filter.Where, `lastseen=?`)
+		filter.Values = append(filter.Values, ls)
+	}
+
+	results, err := loadData(filter)
 	if err != nil {
 		return scanData{}, err
 	}
@@ -317,7 +312,7 @@ func index(c echo.Context) error {
 // Handler for GET /ips.json
 // This is used as the prefetch for Typeahead.js
 func ips(c echo.Context) error {
-	data, err := loadData("", "", "")
+	data, err := loadData(sqlFilter{})
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 	}
