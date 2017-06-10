@@ -356,8 +356,16 @@ func main() {
 	tlsHostname := flag.String("tls.hostname", "", "(Optional) Hostname to restrict AutoTLS")
 	flag.Parse()
 
+	funcMap := template.FuncMap{
+		"join": func(sep string, s []string) string {
+			return strings.Join(s, sep)
+		},
+	}
+
 	t := &Template{
-		templates: template.Must(template.ParseGlob("views/*.html")),
+		templates: template.Must(template.New("").
+			Funcs(funcMap).
+			ParseGlob("views/*.html")),
 	}
 
 	e := echo.New()
