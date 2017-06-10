@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -323,6 +324,186 @@ func ips(c echo.Context) error {
 	return c.JSON(http.StatusOK, ips)
 }
 
+type job struct {
+	ID        int    `json:"id"`
+	CIDR      string `json:"cidr"`
+	Ports     string `json:"ports"`
+	Proto     string `json:"proto"`
+	Submitted string `json:"-"`
+	Received  string `json:"-"`
+}
+
+func loadJobs(filter sqlFilter) ([]job, error) {
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return []job{}, err
+	}
+	defer db.Close()
+
+	qry := fmt.Sprintf(`SELECT rowid, cidr, ports, proto, submitted, received FROM job %s ORDER BY received DESC, submitted, rowid`, filter)
+	rows, err := db.Query(qry, filter.Values...)
+	if err != nil {
+		return []job{}, err
+	}
+
+	defer rows.Close()
+
+	var id int
+	var cidr, ports, proto string
+	var submitted time.Time
+	var receivedNT NullTime
+
+	var jobs []job
+
+	for rows.Next() {
+		err := rows.Scan(&id, &cidr, &ports, &proto, &submitted, &receivedNT)
+		if err != nil {
+			return []job{}, err
+		}
+
+		var received string
+		if receivedNT.Valid {
+			received = receivedNT.Time.Format(dateTime)
+		}
+
+		jobs = append(jobs, job{id, cidr, ports, proto, submitted.Format(dateTime), received})
+	}
+
+	return jobs, nil
+}
+
+func saveJob(cidr, ports, proto string) (int64, error) {
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return 0, err
+	}
+	defer db.Close()
+
+	txn, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	qry := `INSERT INTO job (cidr, ports, proto, submitted) VALUES (?, ?, ?, ?)`
+	res, err := txn.Exec(qry, cidr, ports, strings.ToLower(proto), time.Now())
+	if err != nil {
+		txn.Rollback()
+		return 0, err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+func updateJob(id string) error {
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	txn, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	qry := `UPDATE job SET received=? WHERE rowid=?`
+	res, err := txn.Exec(qry, time.Now(), id)
+	rows, _ := res.RowsAffected()
+	if err != nil || rows <= 0 {
+		txn.Rollback()
+		return err
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type jobData struct {
+	indexData
+	JobID []string
+	Jobs  []job
+}
+
+// Handler for GET and POST /job
+func newJob(c echo.Context) error {
+	var user string
+	if !authDisabled {
+		session, err := store.Get(c.Request(), "user")
+		if err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		if _, ok := session.Values["user"]; !ok {
+			data := jobData{}
+			return c.Render(http.StatusOK, "job", data)
+		}
+		user = session.Values["user"].(string)
+	}
+
+	var jobID []string
+
+	if c.Request().Method == "POST" {
+		f, _ := c.FormParams()
+		cidr := f.Get("cidr")
+		ports := f.Get("ports")
+		proto := f["proto"]
+
+		// If we have form parameters, save the data as a new job.
+		// Multiple protocols can be submitted. These are saved as separate jobs.
+		//
+		// TODO(jamesog): Turn the logic around and add a message in the
+		// browser if parameters were missing.
+		if cidr != "" && ports != "" && len(proto) > 0 {
+			// var err error
+			for i := range proto {
+				id, err := saveJob(cidr, ports, proto[i])
+				if err != nil {
+					return c.String(http.StatusInternalServerError, err.Error())
+				}
+				jobID = append(jobID, strconv.FormatInt(id, 10))
+			}
+		}
+	}
+
+	jobs, err := loadJobs(sqlFilter{})
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	data := jobData{
+		indexData{Authenticated: true, User: user},
+		jobID,
+		jobs,
+	}
+
+	return c.Render(http.StatusOK, "job", data)
+}
+
+// Handler for GET /jobs
+func jobs(c echo.Context) error {
+	jobs, err := loadJobs(sqlFilter{
+		Where: []string{"received IS NULL"},
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, jobs)
+}
+
 func saveResults(c echo.Context) error {
 	res := new([]result)
 	err := c.Bind(res)
@@ -341,6 +522,34 @@ func saveResults(c echo.Context) error {
 // Handler for POST /results
 func recvResults(c echo.Context) error {
 	err := saveResults(c)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// Handler for PUT /results/:id - wraps recvResults()
+func recvJobResults(c echo.Context) error {
+	job := c.Param("id")
+
+	// Check if the job ID is valid
+	_, err := loadJobs(sqlFilter{
+		Where:  []string{"rowid=?"},
+		Values: []interface{}{job},
+	})
+	if err != nil {
+		return c.String(http.StatusBadRequest, err.Error())
+	}
+
+	// Insert the results as normal
+	err = saveResults(c)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	// Update the job
+	err = updateJob(job)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -389,7 +598,10 @@ func main() {
 	e.GET("/auth", authHandler)
 	e.GET("/login", loginHandler)
 	e.GET("/ips.json", ips)
+	e.Match([]string{"GET", "POST"}, "/job", newJob)
+	e.GET("/jobs", jobs)
 	e.POST("/results", recvResults)
+	e.PUT("/results/:id", recvJobResults)
 	e.Static("/static", "static")
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 

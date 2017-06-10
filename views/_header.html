@@ -22,6 +22,7 @@
 				</div>
 				<div id="navbar" class="collapse navbar-collapse">
 					{{- if .Authenticated }}
+						{{- if gt (len .Results) 0 }}
 					<ul class="nav navbar-nav">
 						<li><p class="navbar-text">Total <span class="badge alert-info">{{ .Total }}</span></p></li>
 						<li><a href="?lastseen={{ .LastSeen }}">Latest <span class="badge alert-warning">{{ .Latest }}</span></a></li>
@@ -38,6 +39,8 @@
 							</div>
 						</div>
 					</form>
+					<a class="btn btn-primary navbar-btn" href="/job">New scan</a>
+						{{- end }}
 						{{- if ne .User "" }}
 					<ul class="nav navbar-nav navbar-right">
 						<li><p class="navbar-text">{{ .User }}</p></li>

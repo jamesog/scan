@@ -1,0 +1,49 @@
+{{ define "job" -}}
+{{ template "header" . }}
+				{{- if .Authenticated }}
+				{{- if gt (len .JobID) 0 }}
+				<p>Job {{ .JobID | join ", " }} submitted.</p>
+				{{- end }}
+				<form class="form-inline" action="/job" method="POST">
+					<div class="form-group">
+						<label for="cidr">CIDR</label>
+						<input type="text" class="form-control" id="cidr" name="cidr" placeholder="IP or CIDR" autofocus>
+						<label for="ports">Ports</label>
+						<input type="text" class="form-control" id="ports" name="ports" value="1-1024">
+						<label for="proto">Protocol</label>
+						<select multiple size="2" class="form-control" id="proto" name="proto">
+							<option selected >TCP</option>
+							<option>UDP</option>
+						</select>
+					</div>
+					<button type="submit" class="btn btn-default">Submit</button>
+				</form>
+				<div class="table-responsive col-md-5">
+					<table class="table table-striped table-hover">
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>CIDR</th>
+								<th>Ports</th>
+								<th>Proto</th>
+								<th>Submitted</th>
+								<th>Received</th>
+							</tr>
+						</thead>
+						<tbody>
+							{{- range .Jobs }}
+							<tr>
+								<td>{{ .ID }}</td>
+								<td>{{ .CIDR }}</td>
+								<td>{{ .Ports }}</td>
+								<td>{{ .Proto }}</td>
+								<td>{{ .Submitted }}</td>
+								<td>{{ or .Received "Waiting" }}</td>
+							</tr>
+							{{- end }}
+						</tbody>
+					</table>
+				</div>
+				{{- end }}
+{{- template "footer" }}
+{{- end }}
