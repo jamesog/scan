@@ -323,15 +323,24 @@ func ips(c echo.Context) error {
 	return c.JSON(http.StatusOK, ips)
 }
 
-// Handler for POST /results
-func recvResults(c echo.Context) error {
+func saveResults(c echo.Context) error {
 	res := new([]result)
 	err := c.Bind(res)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		return err
 	}
 
 	err = saveData(*res)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Handler for POST /results
+func recvResults(c echo.Context) error {
+	err := saveResults(c)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
