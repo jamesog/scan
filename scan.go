@@ -109,22 +109,19 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 
 	var data []ipInfo
 	var ip, proto string
-	var firstseenUnix, lastseenUnix int
+	var firstseen, lastseen time.Time
 	var port int
 	var latest time.Time
 
 	for rows.Next() {
-		err := rows.Scan(&ip, &port, &proto, &firstseenUnix, &lastseenUnix)
+		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
 		if err != nil {
 			return []ipInfo{}, err
 		}
-		firstseen := time.Unix(int64(firstseenUnix), 0).Format(dateTime)
-		lastseen := time.Unix(int64(lastseenUnix), 0).Format(dateTime)
-		last, _ := time.Parse(dateTime, lastseen)
-		if last.After(latest) {
-			latest = last
+		if lastseen.After(latest) {
+			latest = lastseen
 		}
-		data = append(data, ipInfo{ip, port, proto, firstseen, lastseen, false})
+		data = append(data, ipInfo{ip, port, proto, firstseen.Format(dateTime), lastseen.Format(dateTime), false})
 	}
 
 	for i := range data {
@@ -167,7 +164,7 @@ func saveData(results []result) error {
 		return err
 	}
 
-	now := time.Now().Unix()
+	now := time.Now().UTC().Truncate(time.Minute)
 
 	for _, r := range results {
 		// Although it's an array, only one port is in each
@@ -241,12 +238,14 @@ func resultData(ip, fs, ls string) (scanData, error) {
 		filter.Values = append(filter.Values, fmt.Sprintf("%%%s%%", ip))
 	}
 	if fs != "" {
+		t, _ := time.Parse(dateTime, fs)
 		filter.Where = append(filter.Where, `firstseen=?`)
-		filter.Values = append(filter.Values, fs)
+		filter.Values = append(filter.Values, t)
 	}
 	if ls != "" {
+		t, _ := time.Parse(dateTime, ls)
 		filter.Where = append(filter.Where, `lastseen=?`)
-		filter.Values = append(filter.Values, ls)
+		filter.Values = append(filter.Values, t)
 	}
 
 	results, err := loadData(filter)
