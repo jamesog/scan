@@ -18,7 +18,7 @@
 					</div>
 					<button type="submit" class="btn btn-default">Submit</button>
 				</form>
-				<div class="table-responsive col-md-5">
+				<div class="table-responsive col-md-7">
 					<table class="table table-striped table-hover">
 						<thead>
 							<tr>
@@ -28,6 +28,7 @@
 								<th>Proto</th>
 								<th>Submitted</th>
 								<th>Received</th>
+								<th>Requested by</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -39,6 +40,7 @@
 								<td>{{ .Proto }}</td>
 								<td>{{ .Submitted }}</td>
 								<td>{{ or .Received "Waiting" }}</td>
+								<td>{{ .RequestedBy }}</td>
 							</tr>
 							{{- end }}
 						</tbody>

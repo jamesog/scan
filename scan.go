@@ -325,12 +325,13 @@ func ips(c echo.Context) error {
 }
 
 type job struct {
-	ID        int    `json:"id"`
-	CIDR      string `json:"cidr"`
-	Ports     string `json:"ports"`
-	Proto     string `json:"proto"`
-	Submitted string `json:"-"`
-	Received  string `json:"-"`
+	ID          int    `json:"id"`
+	CIDR        string `json:"cidr"`
+	Ports       string `json:"ports"`
+	Proto       string `json:"proto"`
+	RequestedBy string `json:"-"`
+	Submitted   string `json:"-"`
+	Received    string `json:"-"`
 }
 
 func loadJobs(filter sqlFilter) ([]job, error) {
@@ -340,7 +341,7 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 	}
 	defer db.Close()
 
-	qry := fmt.Sprintf(`SELECT rowid, cidr, ports, proto, submitted, received FROM job %s ORDER BY received DESC, submitted, rowid`, filter)
+	qry := fmt.Sprintf(`SELECT rowid, cidr, ports, proto, requested_by, submitted, received FROM job %s ORDER BY received DESC, submitted, rowid`, filter)
 	rows, err := db.Query(qry, filter.Values...)
 	if err != nil {
 		return []job{}, err
@@ -349,14 +350,14 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 	defer rows.Close()
 
 	var id int
-	var cidr, ports, proto string
+	var cidr, ports, proto, requestedBy string
 	var submitted time.Time
 	var receivedNT NullTime
 
 	var jobs []job
 
 	for rows.Next() {
-		err := rows.Scan(&id, &cidr, &ports, &proto, &submitted, &receivedNT)
+		err := rows.Scan(&id, &cidr, &ports, &proto, &requestedBy, &submitted, &receivedNT)
 		if err != nil {
 			return []job{}, err
 		}
@@ -366,13 +367,13 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 			received = receivedNT.Time.Format(dateTime)
 		}
 
-		jobs = append(jobs, job{id, cidr, ports, proto, submitted.Format(dateTime), received})
+		jobs = append(jobs, job{id, cidr, ports, proto, requestedBy, submitted.Format(dateTime), received})
 	}
 
 	return jobs, nil
 }
 
-func saveJob(cidr, ports, proto string) (int64, error) {
+func saveJob(cidr, ports, proto, user string) (int64, error) {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return 0, err
@@ -384,8 +385,8 @@ func saveJob(cidr, ports, proto string) (int64, error) {
 		return 0, err
 	}
 
-	qry := `INSERT INTO job (cidr, ports, proto, submitted) VALUES (?, ?, ?, ?)`
-	res, err := txn.Exec(qry, cidr, ports, strings.ToLower(proto), time.Now())
+	qry := `INSERT INTO job (cidr, ports, proto, requested_by, submitted) VALUES (?, ?, ?, ?, ?)`
+	res, err := txn.Exec(qry, cidr, ports, strings.ToLower(proto), user, time.Now())
 	if err != nil {
 		txn.Rollback()
 		return 0, err
@@ -469,7 +470,7 @@ func newJob(c echo.Context) error {
 		if cidr != "" && ports != "" && len(proto) > 0 {
 			// var err error
 			for i := range proto {
-				id, err := saveJob(cidr, ports, proto[i])
+				id, err := saveJob(cidr, ports, proto[i], user)
 				if err != nil {
 					return c.String(http.StatusInternalServerError, err.Error())
 				}
