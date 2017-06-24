@@ -15,7 +15,10 @@
 						<tbody>
 							{{- range .Results }}
 							<tr>
-								<td>{{ if .New }}<span class="label label-danger">New</span>{{ end }}</td>
+								<td>
+									{{- if .New }}<span class="label label-danger">New</span>{{ end -}}
+									{{- if .Gone }}<span class="label label-success">Gone</span>{{ end -}}
+								</td>
 								<td>{{ .IP }}</td>
 								<td>{{ .Port }}</td>
 								<td>{{ .Proto }}</td>

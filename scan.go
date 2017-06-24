@@ -89,6 +89,7 @@ type ipInfo struct {
 	FirstSeen string
 	LastSeen  string
 	New       bool
+	Gone      bool
 }
 
 // Load all data for displaying in the browser
@@ -121,7 +122,7 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 		if lastseen.After(latest) {
 			latest = lastseen
 		}
-		data = append(data, ipInfo{ip, port, proto, firstseen.Format(dateTime), lastseen.Format(dateTime), false})
+		data = append(data, ipInfo{ip, port, proto, firstseen.Format(dateTime), lastseen.Format(dateTime), false, false})
 	}
 
 	for i := range data {
@@ -129,6 +130,9 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 		l, _ := time.Parse(dateTime, data[i].LastSeen)
 		if f.Equal(l) && l == latest {
 			data[i].New = true
+		}
+		if l.Before(latest) {
+			data[i].Gone = true
 		}
 	}
 
