@@ -3,9 +3,9 @@
 
 [[projects]]
   name = "cloud.google.com/go"
-  packages = ["compute/metadata","internal"]
-  revision = "2e6a95edb1071d750f6d7db777bf66cd2997af6c"
-  version = "v0.7.0"
+  packages = ["compute/metadata"]
+  revision = "d4f8670e9dba7e0c9dd3f6da843d678afd21c587"
+  version = "v0.9.0"
 
 [[projects]]
   branch = "master"
@@ -22,14 +22,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/golang/protobuf"
-  packages = ["proto","ptypes/any"]
-  revision = "5a0f697c9ed9d68fef0116532c6e05cfeae00e55"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/googleapis/gax-go"
-  packages = ["."]
-  revision = "84ed26760e7f6f80887a2fbfb50db3cc415d2cea"
+  packages = ["proto"]
+  revision = "6a1fa9404c0aebf36c879bc50152edcc953910d2"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -52,8 +46,8 @@
 [[projects]]
   name = "github.com/labstack/echo"
   packages = [".","middleware"]
-  revision = "1049c9613cd371b7ea8f219404c9a821734781ed"
-  version = "v3.1.0"
+  revision = "935a60782cbbc55110e7bd4b33120e4567cbee43"
+  version = "v3.2.1"
 
 [[projects]]
   name = "github.com/labstack/gommon"
@@ -64,8 +58,8 @@
 [[projects]]
   name = "github.com/mattn/go-colorable"
   packages = ["."]
-  revision = "d228849504861217f796da67fae4f6e347643f15"
-  version = "v0.0.7"
+  revision = "941b50ebc6efddf4c41c8e4537a5f68a4e686b24"
+  version = "v0.0.8"
 
 [[projects]]
   name = "github.com/mattn/go-isatty"
@@ -77,7 +71,7 @@
   branch = "master"
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
-  revision = "83772a7051f5e30d8e59746a9e43dfa706b72f3b"
+  revision = "afe454f6220b3972691678af2c5579781563183f"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -101,13 +95,13 @@
   branch = "master"
   name = "github.com/prometheus/common"
   packages = ["expfmt","internal/bitbucket.org/ww/goautoneg","model"]
-  revision = "13ba4ddd0caa9c28ca7b7bffe1dfa9ed8d5ef207"
+  revision = "0866df4b85a18d652b6965be022d007cdf076822"
 
 [[projects]]
   branch = "master"
   name = "github.com/prometheus/procfs"
   packages = [".","xfs"]
-  revision = "a3bfc74126ea9e45ee5d5c6f7fc86191b7d488fb"
+  revision = "822d4a1f8edcbcbc71e8d1fd6527b12331a6d0ad"
 
 [[projects]]
   branch = "master"
@@ -125,13 +119,13 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["acme","acme/autocert"]
-  revision = "e7ba82683099cae71475961448ab8f903ea77c26"
+  revision = "adbae1b6b6fb4b02448a0fc0dbbc9ba2b95b294d"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","context/ctxhttp","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
-  revision = "1a68b1313cf4ad7778376e82641197b60c02f65c"
+  packages = ["context","context/ctxhttp"]
+  revision = "5f8847ae0d0e90b6a9dc8148e7ad616874625171"
 
 [[projects]]
   branch = "master"
@@ -143,13 +137,7 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "0b25a408a50076fbbcae6b7ac0ea5fbb0b085e79"
-
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/text"
-  packages = ["internal/gen","internal/triegen","internal/ucd","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
-  revision = "210eee5cf7323015d097341bcf7166130d001cd8"
+  revision = "c23410a886927bab8ca5e80b08af6a56faeb330d"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -157,21 +145,9 @@
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
 
-[[projects]]
-  branch = "master"
-  name = "google.golang.org/genproto"
-  packages = ["googleapis/rpc/status"]
-  revision = "aa2eb687b4d3e17154372564ad8d6bf11c3cf21f"
-
-[[projects]]
-  name = "google.golang.org/grpc"
-  packages = [".","codes","credentials","grpclb/grpc_lb_v1","grpclog","internal","keepalive","metadata","naming","peer","stats","status","tap","transport"]
-  revision = "d8960bd63c6743defa6d54926e5edfa8e4a28e43"
-  version = "v1.4.0"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e4cb5f473fdbbd0447b1b9ce8fd5d36a312c961603f6ee7d4e66ff0da1f22670"
+  inputs-digest = "b1c59846916fadd2a25b99bdd3ef44233347871f42e5126a3df6fcd93de9434e"
   solver-name = "gps-cdcl"
   solver-version = 1
