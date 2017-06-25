@@ -595,8 +595,7 @@ func main() {
 		e.Pre(middleware.HTTPSRedirect())
 	}
 
-	// Uncomment this if upgrading to Echo > 3.1.0
-	// e.HideBanner = true
+	e.HideBanner = true
 	e.Renderer = t
 	e.Use(middleware.Logger())
 	e.GET("/", index)
