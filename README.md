@@ -10,7 +10,7 @@ Scan stores results in a SQLite database. To initialise it, run:
 sqlite3 scan.db
 CREATE TABLE scan (ip text, port integer, proto text, firstseen datetime, lastseen datetime);
 CREATE TABLE users (email text);
-CREATE TABLE job (id int, cidr text, ports text, proto text, requested_by text, submitted datetime, received datetime);
+CREATE TABLE job (id int, cidr text, ports text, proto text, requested_by text, submitted datetime, received datetime, count int);
 ```
 
 ## Authentication & Authorization

@@ -140,35 +140,36 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 }
 
 // Save the results posted
-func saveData(results []result) error {
+func saveData(results []result) (int64, error) {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer db.Close()
 
 	txn, err := db.Begin()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	insert, err := txn.Prepare(`INSERT INTO scan (ip, port, proto, firstseen, lastseen) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		txn.Rollback()
-		return err
+		return 0, err
 	}
 	qry, err := db.Prepare(`SELECT 1 FROM scan WHERE ip=? AND port=? AND proto=?`)
 	if err != nil {
 		txn.Rollback()
-		return err
+		return 0, err
 	}
 	update, err := txn.Prepare(`UPDATE scan SET lastseen=? WHERE ip=? AND port=? AND proto=?`)
 	if err != nil {
 		txn.Rollback()
-		return err
+		return 0, err
 	}
 
 	now := time.Now().UTC().Truncate(time.Minute)
+	var count int64
 
 	for _, r := range results {
 		// Although it's an array, only one port is in each
@@ -192,23 +193,25 @@ func saveData(results []result) error {
 			_, err = insert.Exec(r.IP, port.Port, port.Proto, now, now)
 			if err != nil {
 				txn.Rollback()
-				return err
+				return 0, err
 			}
 			continue
 		case err != nil:
 			txn.Rollback()
-			return err
+			return 0, err
 		}
 
 		_, err = update.Exec(now, r.IP, port.Port, port.Proto)
 		if err != nil {
 			txn.Rollback()
-			return err
+			return 0, err
 		}
+
+		count++
 	}
 
 	txn.Commit()
-	return nil
+	return count, nil
 }
 
 // Template is a template
@@ -335,6 +338,7 @@ type job struct {
 	RequestedBy string `json:"-"`
 	Submitted   string `json:"-"`
 	Received    string `json:"-"`
+	Count       int64  `json:"-"`
 }
 
 func loadJobs(filter sqlFilter) ([]job, error) {
@@ -344,7 +348,7 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 	}
 	defer db.Close()
 
-	qry := fmt.Sprintf(`SELECT rowid, cidr, ports, proto, requested_by, submitted, received FROM job %s ORDER BY received DESC, submitted, rowid`, filter)
+	qry := fmt.Sprintf(`SELECT rowid, cidr, ports, proto, requested_by, submitted, received, count FROM job %s ORDER BY received DESC, submitted, rowid`, filter)
 	rows, err := db.Query(qry, filter.Values...)
 	if err != nil {
 		return []job{}, err
@@ -356,11 +360,12 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 	var cidr, ports, proto, requestedBy string
 	var submitted time.Time
 	var receivedNT NullTime
+	var count sql.NullInt64
 
 	var jobs []job
 
 	for rows.Next() {
-		err := rows.Scan(&id, &cidr, &ports, &proto, &requestedBy, &submitted, &receivedNT)
+		err := rows.Scan(&id, &cidr, &ports, &proto, &requestedBy, &submitted, &receivedNT, &count)
 		if err != nil {
 			return []job{}, err
 		}
@@ -370,7 +375,7 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 			received = receivedNT.Time.Format(dateTime)
 		}
 
-		jobs = append(jobs, job{id, cidr, ports, proto, requestedBy, submitted.Format(dateTime), received})
+		jobs = append(jobs, job{id, cidr, ports, proto, requestedBy, submitted.Format(dateTime), received, count.Int64})
 	}
 
 	return jobs, nil
@@ -408,7 +413,7 @@ func saveJob(cidr, ports, proto, user string) (int64, error) {
 	return id, nil
 }
 
-func updateJob(id string) error {
+func updateJob(id string, count int64) error {
 	db, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return err
@@ -420,8 +425,8 @@ func updateJob(id string) error {
 		return err
 	}
 
-	qry := `UPDATE job SET received=? WHERE rowid=?`
-	res, err := txn.Exec(qry, time.Now(), id)
+	qry := `UPDATE job SET received=?, count=? WHERE rowid=?`
+	res, err := txn.Exec(qry, time.Now(), count, id)
 	rows, _ := res.RowsAffected()
 	if err != nil || rows <= 0 {
 		txn.Rollback()
@@ -508,24 +513,24 @@ func jobs(c echo.Context) error {
 	return c.JSON(http.StatusOK, jobs)
 }
 
-func saveResults(c echo.Context) error {
+func saveResults(c echo.Context) (int64, error) {
 	res := new([]result)
 	err := c.Bind(res)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	err = saveData(*res)
+	count, err := saveData(*res)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return count, nil
 }
 
 // Handler for POST /results
 func recvResults(c echo.Context) error {
-	err := saveResults(c)
+	_, err := saveResults(c)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -533,7 +538,7 @@ func recvResults(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// Handler for PUT /results/:id - wraps recvResults()
+// Handler for PUT /results/:id
 func recvJobResults(c echo.Context) error {
 	job := c.Param("id")
 
@@ -547,13 +552,13 @@ func recvJobResults(c echo.Context) error {
 	}
 
 	// Insert the results as normal
-	err = saveResults(c)
+	count, err := saveResults(c)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
 	// Update the job
-	err = updateJob(job)
+	err = updateJob(job, count)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}

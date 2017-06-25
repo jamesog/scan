@@ -28,6 +28,7 @@
 								<th>Proto</th>
 								<th>Submitted</th>
 								<th>Received</th>
+								<th>Count</th>
 								<th>Requested by</th>
 							</tr>
 						</thead>
@@ -40,6 +41,7 @@
 								<td>{{ .Proto }}</td>
 								<td>{{ .Submitted }}</td>
 								<td>{{ or .Received "Waiting" }}</td>
+								<td>{{ if ne .Received "" }}{{ .Count }}{{ end }}</td>
 								<td>{{ .RequestedBy }}</td>
 							</tr>
 							{{- end }}
