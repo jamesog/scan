@@ -18,7 +18,6 @@ import (
 	"github.com/labstack/echo/middleware"
 	"github.com/labstack/gommon/color"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Human-readable date-time format
@@ -621,10 +620,7 @@ func main() {
 	e.POST("/results", recvResults)
 	e.PUT("/results/:id", recvJobResults)
 	e.Static("/static", "static")
-	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-
-	// TODO(jamesog): Remove this and instrument directly from the receive handler
-	go metrics()
+	e.GET("/metrics", echo.WrapHandler(metrics()))
 
 	if *tls {
 		go func() { e.Logger.Fatal(e.Start(*httpAddr)) }()

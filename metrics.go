@@ -1,9 +1,12 @@
 package main
 
 import (
+	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -44,14 +47,24 @@ func init() {
 	prometheus.MustRegister(gaugeJobs)
 }
 
-func metrics() {
-	for {
-		results, err := resultData("", "", "")
-		if err == nil {
-			gaugeTotal.Set(float64(results.Total))
-			gaugeLatest.Set(float64(results.Latest))
-			gaugeNew.Set(float64(results.New))
-		}
-		time.Sleep(1 * time.Minute)
+func metrics() http.Handler {
+	results, err := resultData("", "", "")
+	if err == nil {
+		gaugeTotal.Set(float64(results.Total))
+		gaugeLatest.Set(float64(results.Latest))
+		gaugeNew.Set(float64(results.New))
 	}
+
+	jobs, err := loadJobs(sqlFilter{
+		Where: []string{`received IS NOT NULL`},
+	})
+	for _, job := range jobs {
+		gaugeJobs.With(prometheus.Labels{
+			"id":        strconv.Itoa(job.ID),
+			"submitted": strconv.FormatInt(time.Time(job.Submitted).Unix(), 10),
+			"received":  strconv.FormatInt(time.Time(job.Received).Unix(), 10),
+		}).Set(float64(job.Count))
+	}
+
+	return promhttp.Handler()
 }
