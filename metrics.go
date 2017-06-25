@@ -27,12 +27,21 @@ var (
 		Subsystem: "ips",
 		Help:      "New IPs found",
 	})
+
+	gaugeJobs = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name:      "job",
+			Namespace: "scan",
+			Help:      "Number of IPs found in each each job, with submitted and received times",
+		},
+		[]string{"id", "submitted", "received"})
 )
 
 func init() {
 	prometheus.MustRegister(gaugeTotal)
 	prometheus.MustRegister(gaugeLatest)
 	prometheus.MustRegister(gaugeNew)
+	prometheus.MustRegister(gaugeJobs)
 }
 
 func metrics() {
