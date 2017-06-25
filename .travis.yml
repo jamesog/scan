@@ -1,0 +1,33 @@
+language: go
+go:
+  - 1.x
+  - master
+
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq libsqlite3-0
+
+install:
+  - go get github.com/golang/lint/golint
+  - go get github.com/golang/dep/cmd/dep
+  - dep ensure
+
+script:
+  - go test -v
+  - golint -set_exit_status
+  - go vet
+  - go build -v
+
+deploy:
+  provider: releases
+  api_key:
+    secure: VCsG7S20vLtVC6eBgNDOi6JPEvhd59oOXcuNn6b56fCX56/HMz7FtCLTevlx1ZUHTJ+4hyurvI3LR8rjw1g3/HEBFZYadddLRjNJteTZW0Mp/bbiu5j3coKdGT8LE6B6MIK3lH7htMeMI7xbaW5shIifeZaopxMp/T4k94iJLv12+NGhMYRrTwMrQhzzUh+so4/0IOvzRYHt3rRRbOhD20UmvBlkONUNkWwxgYbjifclvYWVc1Dm5j7dEZQjXgd9e3+vbt98JN075jgy1CSF4KkSz5UxIAN4xH7X5NBCxQtjW+YPdqV/d1C3Yaz7nONm9zVSai59mx09lPXznq4CaPs382eo5cJfDttpYCksgryhWMFboUGjNg5Qv5IpG8+X8hSAL5B1JRGg13X0y6nBkxpBVOJcqwCDvu2efdXQ3896xveZyK7pSuscE2740KwyVnINQ38RiTDrj3DOz9FxdfTd0u8Hm1Y2mdzqh3nD7WQ8l5K2skGkVoznZtoi5JoHPuFXwwuAiZ9A4LgCA+MPkLckVslF5TINJJs0+Eedke2ykaPgiuWSTNIirC+nLJE4c7+tXqQXsWx7yUwqYSV0l4FAKuKgZwquIk8no6JRjHohkpj0ZyJBTnaITgdw/o5syqTX/hIeJbRZueU3zlLkH7/wuWMD8qW45XQWPZoK5jg=
+  file_glob: true
+  file:
+    - scan
+    - views/*.html
+    - static/*
+  skip_cleanup: true
+  on:
+    tags: true
+    go: 1.x
