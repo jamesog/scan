@@ -41,7 +41,7 @@
 								<td>{{ .Proto }}</td>
 								<td>{{ .Submitted }}</td>
 								<td>{{ or .Received "Waiting" }}</td>
-								<td>{{ if ne .Received "" }}{{ .Count }}{{ end }}</td>
+								<td>{{ if not .Received.IsZero }}{{ .Count }}{{ end }}</td>
 								<td>{{ .RequestedBy }}</td>
 							</tr>
 							{{- end }}

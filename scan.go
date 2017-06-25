@@ -330,15 +330,29 @@ func ips(c echo.Context) error {
 	return c.JSON(http.StatusOK, ips)
 }
 
+type jobTime time.Time
+
+func (jt jobTime) String() string {
+	t := time.Time(jt)
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format(dateTime)
+}
+
+func (jt jobTime) IsZero() bool {
+	return time.Time(jt).IsZero()
+}
+
 type job struct {
-	ID          int    `json:"id"`
-	CIDR        string `json:"cidr"`
-	Ports       string `json:"ports"`
-	Proto       string `json:"proto"`
-	RequestedBy string `json:"-"`
-	Submitted   string `json:"-"`
-	Received    string `json:"-"`
-	Count       int64  `json:"-"`
+	ID          int     `json:"id"`
+	CIDR        string  `json:"cidr"`
+	Ports       string  `json:"ports"`
+	Proto       string  `json:"proto"`
+	RequestedBy string  `json:"-"`
+	Submitted   jobTime `json:"-"`
+	Received    jobTime `json:"-"`
+	Count       int64   `json:"-"`
 }
 
 func loadJobs(filter sqlFilter) ([]job, error) {
@@ -359,23 +373,18 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 	var id int
 	var cidr, ports, proto, requestedBy string
 	var submitted time.Time
-	var receivedNT NullTime
+	var received NullTime
 	var count sql.NullInt64
 
 	var jobs []job
 
 	for rows.Next() {
-		err := rows.Scan(&id, &cidr, &ports, &proto, &requestedBy, &submitted, &receivedNT, &count)
+		err := rows.Scan(&id, &cidr, &ports, &proto, &requestedBy, &submitted, &received, &count)
 		if err != nil {
 			return []job{}, err
 		}
 
-		var received string
-		if receivedNT.Valid {
-			received = receivedNT.Time.Format(dateTime)
-		}
-
-		jobs = append(jobs, job{id, cidr, ports, proto, requestedBy, submitted.Format(dateTime), received, count.Int64})
+		jobs = append(jobs, job{id, cidr, ports, proto, requestedBy, jobTime(submitted), jobTime(received.Time), count.Int64})
 	}
 
 	return jobs, nil
