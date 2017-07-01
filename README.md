@@ -14,6 +14,7 @@ sqlite3 scan.db
 CREATE TABLE scan (ip text, port integer, proto text, firstseen datetime, lastseen datetime);
 CREATE TABLE users (email text);
 CREATE TABLE job (id int, cidr text, ports text, proto text, requested_by text, submitted datetime, received datetime, count int);
+CREATE TABLE traceroute (dest text, path text);
 ```
 
 ## Authentication & Authorization
@@ -105,4 +106,14 @@ and appending the job ID to the URI, e.g.
 
 ```
 curl -H "Content-Type: application/json" -X PUT -d @data.json https://scan.example.com/results/1
+```
+
+## Traceroutes
+
+To aid with network debugging after finding open ports, you can submit a
+traceroute for the IP. This should be `POST`ed to `/traceroute` as multipart
+form data, e.g.
+
+```
+curl -F dest=192.0.2.1 -F traceroute=@traceroute.txt https://scan.example.com/traceroute
 ```

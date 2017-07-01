@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -82,13 +83,14 @@ type result struct {
 
 // Data retrieved from the database for display
 type ipInfo struct {
-	IP        string
-	Port      int
-	Proto     string
-	FirstSeen string
-	LastSeen  string
-	New       bool
-	Gone      bool
+	IP            string
+	Port          int
+	Proto         string
+	FirstSeen     string
+	LastSeen      string
+	New           bool
+	Gone          bool
+	HasTraceroute bool
 }
 
 // Load all data for displaying in the browser
@@ -113,6 +115,11 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 	var port int
 	var latest time.Time
 
+	traceroutes, err := loadTraceroutes()
+	if err != nil {
+		return []ipInfo{}, err
+	}
+
 	for rows.Next() {
 		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
 		if err != nil {
@@ -121,7 +128,19 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 		if lastseen.After(latest) {
 			latest = lastseen
 		}
-		data = append(data, ipInfo{ip, port, proto, firstseen.Format(dateTime), lastseen.Format(dateTime), false, false})
+		var hasTraceroute bool
+		if _, ok := traceroutes[ip]; ok {
+			hasTraceroute = true
+		}
+		data = append(data, ipInfo{
+			ip,
+			port,
+			proto,
+			firstseen.Format(dateTime),
+			lastseen.Format(dateTime),
+			false,
+			false,
+			hasTraceroute})
 	}
 
 	for i := range data {
@@ -211,6 +230,35 @@ func saveData(results []result) (int64, error) {
 
 	txn.Commit()
 	return count, nil
+}
+
+func loadTraceroutes() (map[string]struct{}, error) {
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	ips := make(map[string]struct{})
+
+	rows, err := db.Query(`SELECT dest FROM traceroute`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ip string
+	for rows.Next() {
+		err := rows.Scan(&ip)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := ips[ip]; !ok {
+			ips[ip] = struct{}{}
+		}
+	}
+
+	return ips, nil
 }
 
 // Template is a template
@@ -574,6 +622,69 @@ func recvJobResults(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+// Handler for POST /traceroute
+func recvTraceroute(c echo.Context) error {
+	dest := c.FormValue("dest")
+	fh, err := c.FormFile("traceroute")
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	f, err := fh.Open()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	path, err := ioutil.ReadAll(f)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	defer db.Close()
+
+	txn, err := db.Begin()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	_, err = txn.Exec(`INSERT INTO traceroute (dest, path) VALUES (?, ?)`, dest, path)
+	if err != nil {
+		txn.Rollback()
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// Handler for GET /traceroute/:ip
+func traceroute(c echo.Context) error {
+	ip := c.Param("ip")
+
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	var path string
+	err = db.QueryRow(`SELECT path FROM traceroute WHERE dest = ?`, ip).Scan(&path)
+	switch {
+	case err == sql.ErrNoRows:
+		return c.String(http.StatusNotFound, "Traceroute not found")
+	case err != nil:
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.String(http.StatusOK, path)
+}
+
 func main() {
 	flag.BoolVar(&authDisabled, "no-auth", false, "Disable authentication")
 	httpAddr := flag.String("http.addr", ":80", "HTTP address:port")
@@ -620,6 +731,8 @@ func main() {
 	e.POST("/results", recvResults)
 	e.PUT("/results/:id", recvJobResults)
 	e.Static("/static", "static")
+	e.POST("/traceroute", recvTraceroute)
+	e.GET("/traceroute/:ip", traceroute)
 	e.GET("/metrics", echo.WrapHandler(metrics()))
 
 	if *tls {

@@ -18,6 +18,7 @@
 								<td>
 									{{- if .New }}<span class="label label-danger">New</span>{{ end -}}
 									{{- if .Gone }}<span class="label label-success">Gone</span>{{ end -}}
+									{{- if .HasTraceroute }}<a title="Traceroute for {{ .IP }}" href="/traceroute/{{ .IP }}"><span class="label label-primary"><span class="glyphicon glyphicon-road" aria-hidden="true"></span></span></a>{{ end -}}
 								</td>
 								<td>{{ .IP }}</td>
 								<td>{{ .Port }}</td>
