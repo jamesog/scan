@@ -624,7 +624,7 @@ func recvTraceroute(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
-	_, err = txn.Exec(`INSERT INTO traceroute (dest, path) VALUES (?, ?)`, dest, path)
+	_, err = txn.Exec(`INSERT OR REPLACE INTO traceroute (dest, path) VALUES (?, ?)`, dest, path)
 	if err != nil {
 		txn.Rollback()
 		return c.String(http.StatusInternalServerError, err.Error())
