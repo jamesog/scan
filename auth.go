@@ -80,6 +80,18 @@ func loginHandler(c echo.Context) error {
 	return c.Redirect(http.StatusFound, getLoginURL(state))
 }
 
+func logoutHandler(c echo.Context) error {
+	session, err := store.Get(c.Request(), "user")
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	session.Options.MaxAge = -1
+	session.Save(c.Request(), c.Response().Writer)
+
+	// User is logged out. Redirect back to the index page
+	return c.Redirect(http.StatusFound, "/")
+}
+
 // authHandler receives the login information from Google and checks if the
 // email address is authorized
 func authHandler(c echo.Context) error {

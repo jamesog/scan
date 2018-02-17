@@ -725,6 +725,7 @@ func main() {
 	e.GET("/", index)
 	e.GET("/auth", authHandler)
 	e.GET("/login", loginHandler)
+	e.GET("/logout", logoutHandler)
 	e.GET("/ips.json", ips)
 	e.Match([]string{"GET", "POST"}, "/job", newJob)
 	e.GET("/jobs", jobs)
