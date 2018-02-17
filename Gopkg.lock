@@ -45,13 +45,21 @@
 
 [[projects]]
   name = "github.com/labstack/echo"
-  packages = [".","middleware"]
+  packages = [
+    ".",
+    "middleware"
+  ]
   revision = "935a60782cbbc55110e7bd4b33120e4567cbee43"
   version = "v3.2.1"
 
 [[projects]]
   name = "github.com/labstack/gommon"
-  packages = ["bytes","color","log","random"]
+  packages = [
+    "bytes",
+    "color",
+    "log",
+    "random"
+  ]
   revision = "1121fd3e243c202482226a7afe4dcd07ffc4139a"
   version = "v0.2.1"
 
@@ -68,10 +76,10 @@
   version = "v0.0.2"
 
 [[projects]]
-  branch = "master"
   name = "github.com/mattn/go-sqlite3"
   packages = ["."]
-  revision = "afe454f6220b3972691678af2c5579781563183f"
+  revision = "6c771bb9887719704b210e87e934f08be014bdb1"
+  version = "v1.6.0"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -81,7 +89,10 @@
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
-  packages = ["prometheus","prometheus/promhttp"]
+  packages = [
+    "prometheus",
+    "prometheus/promhttp"
+  ]
   revision = "c5b7fccd204277076155f10851dad72b76a49317"
   version = "v0.8.0"
 
@@ -94,13 +105,20 @@
 [[projects]]
   branch = "master"
   name = "github.com/prometheus/common"
-  packages = ["expfmt","internal/bitbucket.org/ww/goautoneg","model"]
+  packages = [
+    "expfmt",
+    "internal/bitbucket.org/ww/goautoneg",
+    "model"
+  ]
   revision = "0866df4b85a18d652b6965be022d007cdf076822"
 
 [[projects]]
   branch = "master"
   name = "github.com/prometheus/procfs"
-  packages = [".","xfs"]
+  packages = [
+    ".",
+    "xfs"
+  ]
   revision = "822d4a1f8edcbcbc71e8d1fd6527b12331a6d0ad"
 
 [[projects]]
@@ -118,19 +136,31 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["acme","acme/autocert"]
+  packages = [
+    "acme",
+    "acme/autocert"
+  ]
   revision = "adbae1b6b6fb4b02448a0fc0dbbc9ba2b95b294d"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","context/ctxhttp"]
+  packages = [
+    "context",
+    "context/ctxhttp"
+  ]
   revision = "5f8847ae0d0e90b6a9dc8148e7ad616874625171"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/oauth2"
-  packages = [".","google","internal","jws","jwt"]
+  packages = [
+    ".",
+    "google",
+    "internal",
+    "jws",
+    "jwt"
+  ]
   revision = "f047394b6d14284165300fd82dad67edb3a4d7f6"
 
 [[projects]]
@@ -141,13 +171,24 @@
 
 [[projects]]
   name = "google.golang.org/appengine"
-  packages = [".","internal","internal/app_identity","internal/base","internal/datastore","internal/log","internal/modules","internal/remote_api","internal/urlfetch","urlfetch"]
+  packages = [
+    ".",
+    "internal",
+    "internal/app_identity",
+    "internal/base",
+    "internal/datastore",
+    "internal/log",
+    "internal/modules",
+    "internal/remote_api",
+    "internal/urlfetch",
+    "urlfetch"
+  ]
   revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
   version = "v1.0.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b1c59846916fadd2a25b99bdd3ef44233347871f42e5126a3df6fcd93de9434e"
+  inputs-digest = "943aea63653522ec8cb06eda10acbdb59e0cd683bd8800892991e87380698ae3"
   solver-name = "gps-cdcl"
   solver-version = 1
