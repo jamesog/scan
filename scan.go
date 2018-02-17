@@ -664,11 +664,11 @@ func main() {
 	flag.StringVar(&credsFile, "credentials", "client_secret.json",
 		"OAuth 2.0 credentials `file`\n"+
 			"Relative paths are taken as relative to -data.dir")
-	flag.StringVar(&dataDir, "data.dir", ".", "Data directory")
-	httpAddr := flag.String("http.addr", ":80", "HTTP address:port")
-	httpsAddr := flag.String("https.addr", ":443", "HTTPS address:port")
+	flag.StringVar(&dataDir, "data.dir", ".", "Data directory `path`")
+	httpAddr := flag.String("http.addr", ":80", "HTTP `address`:port")
+	httpsAddr := flag.String("https.addr", ":443", "HTTPS `address`:port")
 	tls := flag.Bool("tls", false, "Enable AutoTLS")
-	tlsHostname := flag.String("tls.hostname", "", "(Optional) Hostname to restrict AutoTLS")
+	tlsHostname := flag.String("tls.hostname", "", "(Optional) Restrict AutoTLS to `hostname`")
 	flag.Parse()
 
 	if !filepath.IsAbs(credsFile) {
