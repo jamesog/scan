@@ -278,6 +278,7 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 type indexData struct {
 	Authenticated bool
 	User          string
+	ActiveOnly    bool
 	scanData
 }
 
@@ -356,13 +357,14 @@ func index(c echo.Context) error {
 	ip := c.QueryParam("ip")
 	firstSeen := c.QueryParam("firstseen")
 	lastSeen := c.QueryParam("lastseen")
+	_, activeOnly := c.QueryParams()["active"]
 
 	results, err := resultData(ip, firstSeen, lastSeen)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
-	data := indexData{Authenticated: true, User: user, scanData: results}
+	data := indexData{Authenticated: true, User: user, ActiveOnly: activeOnly, scanData: results}
 
 	return c.Render(http.StatusOK, "index", data)
 }

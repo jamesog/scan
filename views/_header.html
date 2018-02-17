@@ -40,6 +40,7 @@
 						</div>
 					</form>
 					<a class="btn btn-primary navbar-btn" href="/job">New scan</a>
+					<a class="btn btn-{{ if .ActiveOnly }}success{{ else }}default{{ end }} navbar-btn" href="/{{ if not .ActiveOnly }}?active{{ end }}">Active only</a>
 						{{- end }}
 						{{- if ne .User "" }}
 					<ul class="nav navbar-nav navbar-right">
