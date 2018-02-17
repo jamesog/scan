@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
@@ -31,14 +32,15 @@ type User struct {
 }
 
 func init() {
-	if key, err := ioutil.ReadFile(".cookie_key"); err == nil {
+	keyFile := filepath.Join(dataDir, ".cookie_key")
+	if key, err := ioutil.ReadFile(keyFile); err == nil {
 		store = sessions.NewCookieStore(key)
 	} else {
 		// TODO(jamesog): Add a second parameter for encryption
 		// This makes it more complicated to write to the cache file
 		// It should probably be saved in the database instead
 		key := securecookie.GenerateRandomKey(64)
-		err := ioutil.WriteFile(".cookie_key", key, 0600)
+		err := ioutil.WriteFile(keyFile, key, 0600)
 		if err != nil {
 			log.Fatal(err)
 		}

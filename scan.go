@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 const dateTime = "2006-01-02 15:04"
 
 var authDisabled bool
+var dataDir string
 var dbFile = "scan.db"
 
 // NullTime "borrowed" from github.com/lib/pq
@@ -687,6 +689,7 @@ func traceroute(c echo.Context) error {
 
 func main() {
 	flag.BoolVar(&authDisabled, "no-auth", false, "Disable authentication")
+	flag.StringVar(&dataDir, "data.dir", ".", "Data directory")
 	httpAddr := flag.String("http.addr", ":80", "HTTP address:port")
 	httpsAddr := flag.String("https.addr", ":443", "HTTPS address:port")
 	tls := flag.Bool("tls", false, "Enable AutoTLS")
@@ -702,7 +705,7 @@ func main() {
 	t := &Template{
 		templates: template.Must(template.New("").
 			Funcs(funcMap).
-			ParseGlob("views/*.html")),
+			ParseGlob(filepath.Join(dataDir, "views/*.html"))),
 	}
 
 	e := echo.New()
@@ -715,7 +718,7 @@ func main() {
 		if *tlsHostname != "" {
 			e.AutoTLSManager.HostPolicy = autocert.HostWhitelist(*tlsHostname)
 		}
-		e.AutoTLSManager.Cache = autocert.DirCache(".cache")
+		e.AutoTLSManager.Cache = autocert.DirCache(filepath.Join(dataDir, ".cache"))
 		e.Pre(middleware.HTTPSRedirect())
 	}
 
@@ -731,7 +734,7 @@ func main() {
 	e.GET("/jobs", jobs)
 	e.POST("/results", recvResults)
 	e.PUT("/results/:id", recvJobResults)
-	e.Static("/static", "static")
+	e.Static("/static", filepath.Join(dataDir, "static"))
 	e.POST("/traceroute", recvTraceroute)
 	e.GET("/traceroute/:ip", traceroute)
 	e.GET("/metrics", echo.WrapHandler(metrics()))
