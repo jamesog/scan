@@ -31,7 +31,7 @@ type User struct {
 	Email      string `json:"email"`
 }
 
-func init() {
+func oauthConfig() {
 	keyFile := filepath.Join(dataDir, ".cookie_key")
 	if key, err := ioutil.ReadFile(keyFile); err == nil {
 		store = sessions.NewCookieStore(key)
@@ -47,15 +47,14 @@ func init() {
 		store = sessions.NewCookieStore(key)
 	}
 
-	// TODO(jamesog): Make the path a flag
-	f, err := ioutil.ReadFile("./client_secret.json")
+	f, err := ioutil.ReadFile(credsFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("couldn't read credentials file: %s", err)
 	}
 
 	conf, err = google.ConfigFromJSON(f, "https://www.googleapis.com/auth/userinfo.email")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("couldn't parse OAuth2 config: %s", err)
 	}
 }
 

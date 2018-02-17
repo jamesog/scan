@@ -26,11 +26,16 @@ import (
 // Human-readable date-time format
 const dateTime = "2006-01-02 15:04"
 
-var authDisabled bool
-var dataDir string
-var dbFile = "scan.db"
+var (
+	// Flag variables
+	authDisabled bool
+	credsFile    string
+	dataDir      string
 
-var db *sql.DB
+	// Database handle
+	db     *sql.DB
+	dbFile = "scan.db"
+)
 
 func openDB(dsn string) error {
 	var err error
@@ -656,12 +661,21 @@ func traceroute(c echo.Context) error {
 
 func main() {
 	flag.BoolVar(&authDisabled, "no-auth", false, "Disable authentication")
+	flag.StringVar(&credsFile, "credentials", "client_secret.json",
+		"OAuth 2.0 credentials `file`\n"+
+			"Relative paths are taken as relative to -data.dir")
 	flag.StringVar(&dataDir, "data.dir", ".", "Data directory")
 	httpAddr := flag.String("http.addr", ":80", "HTTP address:port")
 	httpsAddr := flag.String("https.addr", ":443", "HTTPS address:port")
 	tls := flag.Bool("tls", false, "Enable AutoTLS")
 	tlsHostname := flag.String("tls.hostname", "", "(Optional) Hostname to restrict AutoTLS")
 	flag.Parse()
+
+	if !filepath.IsAbs(credsFile) {
+		credsFile = filepath.Join(dataDir, credsFile)
+	}
+
+	oauthConfig()
 
 	if err := openDB(filepath.Join(dataDir, dbFile)); err != nil {
 		log.Fatalf("failed to open database: %v", err)
