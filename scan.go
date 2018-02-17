@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -28,6 +29,20 @@ const dateTime = "2006-01-02 15:04"
 var authDisabled bool
 var dataDir string
 var dbFile = "scan.db"
+
+var db *sql.DB
+
+func openDB(dsn string) error {
+	var err error
+	db, err = sql.Open("sqlite3", dsn)
+	if err != nil {
+		return err
+	}
+	if err = db.Ping(); err != nil {
+		return err
+	}
+	return nil
+}
 
 // NullTime "borrowed" from github.com/lib/pq
 
@@ -97,12 +112,6 @@ type ipInfo struct {
 
 // Load all data for displaying in the browser
 func loadData(filter sqlFilter) ([]ipInfo, error) {
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return []ipInfo{}, err
-	}
-	defer db.Close()
-
 	qry := fmt.Sprintf(`SELECT ip, port, proto, firstseen, lastseen FROM scan %s ORDER BY port, proto, ip, lastseen`, filter)
 	rows, err := db.Query(qry, filter.Values...)
 	if err != nil {
@@ -161,12 +170,6 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 
 // Save the results posted
 func saveData(results []result) (int64, error) {
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return 0, err
-	}
-	defer db.Close()
-
 	txn, err := db.Begin()
 	if err != nil {
 		return 0, err
@@ -235,12 +238,6 @@ func saveData(results []result) (int64, error) {
 }
 
 func loadTraceroutes() (map[string]struct{}, error) {
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
 	ips := make(map[string]struct{})
 
 	rows, err := db.Query(`SELECT dest FROM traceroute`)
@@ -405,12 +402,6 @@ type job struct {
 }
 
 func loadJobs(filter sqlFilter) ([]job, error) {
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return []job{}, err
-	}
-	defer db.Close()
-
 	qry := fmt.Sprintf(`SELECT rowid, cidr, ports, proto, requested_by, submitted, received, count FROM job %s ORDER BY received DESC, submitted, rowid`, filter)
 	rows, err := db.Query(qry, filter.Values...)
 	if err != nil {
@@ -440,12 +431,6 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 }
 
 func saveJob(cidr, ports, proto, user string) (int64, error) {
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return 0, err
-	}
-	defer db.Close()
-
 	txn, err := db.Begin()
 	if err != nil {
 		return 0, err
@@ -472,12 +457,6 @@ func saveJob(cidr, ports, proto, user string) (int64, error) {
 }
 
 func updateJob(id string, count int64) error {
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
 	txn, err := db.Begin()
 	if err != nil {
 		return err
@@ -640,12 +619,6 @@ func recvTraceroute(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	defer db.Close()
-
 	txn, err := db.Begin()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
@@ -669,14 +642,8 @@ func recvTraceroute(c echo.Context) error {
 func traceroute(c echo.Context) error {
 	ip := c.Param("ip")
 
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
 	var path string
-	err = db.QueryRow(`SELECT path FROM traceroute WHERE dest = ?`, ip).Scan(&path)
+	err := db.QueryRow(`SELECT path FROM traceroute WHERE dest = ?`, ip).Scan(&path)
 	switch {
 	case err == sql.ErrNoRows:
 		return c.String(http.StatusNotFound, "Traceroute not found")
@@ -695,6 +662,10 @@ func main() {
 	tls := flag.Bool("tls", false, "Enable AutoTLS")
 	tlsHostname := flag.String("tls.hostname", "", "(Optional) Hostname to restrict AutoTLS")
 	flag.Parse()
+
+	if err := openDB(filepath.Join(dataDir, dbFile)); err != nil {
+		log.Fatalf("failed to open database: %v", err)
+	}
 
 	funcMap := template.FuncMap{
 		"join": func(sep string, s []string) string {

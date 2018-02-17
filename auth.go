@@ -136,11 +136,6 @@ func authHandler(c echo.Context) error {
 	}
 
 	// Look up the user's email address in the database
-	db, err := sql.Open("sqlite3", dbFile)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	defer db.Close()
 
 	// Dummy variable to scan in to
 	var x string
