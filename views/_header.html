@@ -43,7 +43,12 @@
 						{{- end }}
 						{{- if ne .User "" }}
 					<ul class="nav navbar-nav navbar-right">
-						<li><p class="navbar-text">{{ .User }}</p></li>
+						<li class="dropdown">
+							<a class="navbar-link dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">{{ .User }} <span class="caret"></span></a>
+							<ul class="dropdown-menu">
+								<li><a href="/logout">Logout</a></li>
+							</ul>
+						</li>
 					</ul>
 						{{- end }}
 					{{- else }}
