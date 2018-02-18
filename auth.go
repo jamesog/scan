@@ -118,6 +118,13 @@ type AuthSession struct {
 	client *http.Client
 }
 
+type googleAPIError struct {
+	Error struct {
+		Message string `json:"message"`
+		Code    int    `json:"code"`
+	} `json:"error"`
+}
+
 // userInfo fetches the user profile info from the Google API
 func (s AuthSession) userInfo() (*User, error) {
 	// Retrieve the logged in user's information
@@ -167,6 +174,8 @@ func (s AuthSession) validateGroupMember(email string) (bool, error) {
 
 	rows, err := db.Query(`SELECT group_name FROM groups`)
 	if err != nil {
+		log.Printf("error retrieving groups from database: %v", err)
+		return false, err
 	}
 	defer rows.Close()
 
@@ -184,6 +193,18 @@ func (s AuthSession) validateGroupMember(email string) (bool, error) {
 		defer res.Body.Close()
 
 		data, _ := ioutil.ReadAll(res.Body)
+
+		if res.StatusCode != http.StatusOK {
+			var e googleAPIError
+			err := json.Unmarshal(data, &e)
+			if err != nil {
+				log.Printf("[group %s] error unmarshaling Google API error: %v", group, err)
+				continue
+			}
+			log.Printf("[group %s] error code %d from groups API: %v", group, e.Error.Code, e.Error.Message)
+			continue
+		}
+
 		var gm GroupMember
 		err = json.Unmarshal(data, &gm)
 		if err != nil {
