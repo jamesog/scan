@@ -33,6 +33,10 @@ type User struct {
 	Picture    string `json:"picture"`
 }
 
+type GroupMember struct {
+	IsMember bool `json:"isMember"`
+}
+
 func init() {
 	gob.Register(User{})
 }
@@ -61,6 +65,7 @@ func oauthConfig() {
 	scopes := []string{
 		"https://www.googleapis.com/auth/userinfo.email",
 		"https://www.googleapis.com/auth/userinfo.profile",
+		"https://www.googleapis.com/auth/admin.directory.group.member.readonly",
 	}
 	conf, err = google.ConfigFromJSON(f, scopes...)
 	if err != nil {
@@ -103,62 +108,147 @@ func logoutHandler(c echo.Context) error {
 	return c.Redirect(http.StatusFound, "/")
 }
 
-// authHandler receives the login information from Google and checks if the
-// email address is authorized
-func authHandler(c echo.Context) error {
-	session, err := store.Get(c.Request(), "state")
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
+// AuthSession stores the session and OAuth2 client
+type AuthSession struct {
+	state  *sessions.Session
+	user   *sessions.Session
+	token  *oauth2.Token
+	client *http.Client
+}
 
-	// Check if the user has a valid session
-	if session.Values["state"] != c.QueryParam("state") {
-		return c.String(http.StatusUnauthorized, "Invalid session")
-	}
-
-	tok, err := conf.Exchange(oauth2.NoContext, c.QueryParam("code"))
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
-	}
-
+// userInfo fetches the user profile info from the Google API
+func (s AuthSession) userInfo() (*User, error) {
 	// Retrieve the logged in user's information
-	client := conf.Client(oauth2.NoContext, tok)
-	res, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+	res, err := s.client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
+		return nil, err
 	}
 
 	defer res.Body.Close()
 
 	data, _ := ioutil.ReadAll(res.Body)
 
-	session, err = store.Get(c.Request(), "user")
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
-
 	// Unmarshal the user data
 	var user User
 	err = json.Unmarshal(data, &user)
 	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// validateUser looks up the user's email address in the database and returns
+// true if they exist
+func (s AuthSession) validateUser(user *User) (bool, error) {
+
+	// x is a dummy variable to scan in to - we don't actually care about the
+	// result, just that a row was returned
+	var x string
+	err := db.QueryRow(`SELECT email FROM users WHERE email=?`, user.Email).Scan(&x)
+	switch {
+	case err != nil && err != sql.ErrNoRows:
+		return false, err
+	case err == nil:
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// validateGroupMember looks up all group names in the database and returns
+// true if the user is a member of any of the groups
+func (s AuthSession) validateGroupMember(email string) (bool, error) {
+	var group string
+
+	url := "https://www.googleapis.com/admin/directory/v1/groups/%s/hasMember/%s"
+
+	rows, err := db.Query(`SELECT group_name FROM groups`)
+	if err != nil {
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err := rows.Scan(&group)
+		if err != nil {
+			continue
+		}
+
+		res, err := s.client.Get(fmt.Sprintf(url, group, email))
+		if err != nil {
+			log.Printf("error retrieving user %s for group %s: %v", email, group, err)
+			continue
+		}
+		defer res.Body.Close()
+
+		data, _ := ioutil.ReadAll(res.Body)
+		var gm GroupMember
+		err = json.Unmarshal(data, &gm)
+		if err != nil {
+			return false, err
+		}
+
+		if gm.IsMember {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// authHandler receives the login information from Google and checks if the
+// email address is authorized
+func authHandler(c echo.Context) error {
+	var s AuthSession
+	var err error
+	s.state, err = store.Get(c.Request(), "state")
+	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
 
-	// Look up the user's email address in the database
+	// Check if the user has a valid session
+	if s.state.Values["state"] != c.QueryParam("state") {
+		return c.String(http.StatusUnauthorized, "Invalid session")
+	}
 
-	// Dummy variable to scan in to
-	var x string
-	err = db.QueryRow(`SELECT email FROM users WHERE email=?`, user.Email).Scan(&x)
-	switch {
-	case err == sql.ErrNoRows:
+	s.user, err = store.Get(c.Request(), "user")
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	s.token, err = conf.Exchange(oauth2.NoContext, c.QueryParam("code"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err)
+	}
+
+	s.client = conf.Client(oauth2.NoContext, s.token)
+
+	var authorised bool
+
+	// Check if the user email is in the individual users list
+	// If the individual user is not authorised, check group membership
+
+	user, err := s.userInfo()
+	authorised, err = s.validateUser(user)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err)
+	}
+
+	// The user doesn't have an individual entry, check group membership
+	if !authorised {
+		authorised, err = s.validateGroupMember(user.Email)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err)
+		}
+	}
+
+	if !authorised {
 		return c.String(http.StatusUnauthorized, fmt.Sprintf("%s is not authorized", user.Email))
-	case err != nil:
-		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
 	// Store the email in the session
-	session.Values["user"] = user
-	session.Save(c.Request(), c.Response().Writer)
+	s.user.Values["user"] = user
+	s.user.Save(c.Request(), c.Response().Writer)
 
 	// User is logged in. Redirect back to the index page
 	return c.Redirect(http.StatusFound, "/")
