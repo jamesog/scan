@@ -277,7 +277,7 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 
 type indexData struct {
 	Authenticated bool
-	User          string
+	User          User
 	ActiveOnly    bool
 	scanData
 }
@@ -341,7 +341,7 @@ func resultData(ip, fs, ls string) (scanData, error) {
 
 // Handler for GET /
 func index(c echo.Context) error {
-	var user string
+	var user User
 	if !authDisabled {
 		session, err := store.Get(c.Request(), "user")
 		if err != nil {
@@ -351,7 +351,13 @@ func index(c echo.Context) error {
 			data := indexData{}
 			return c.Render(http.StatusOK, "index", data)
 		}
-		user = session.Values["user"].(string)
+		v := session.Values["user"]
+		switch v.(type) {
+		case string:
+			user.Email = v.(string)
+		case User:
+			user = v.(User)
+		}
 	}
 
 	ip := c.QueryParam("ip")
@@ -493,7 +499,7 @@ type jobData struct {
 
 // Handler for GET and POST /job
 func newJob(c echo.Context) error {
-	var user string
+	var user User
 	if !authDisabled {
 		session, err := store.Get(c.Request(), "user")
 		if err != nil {
@@ -503,7 +509,13 @@ func newJob(c echo.Context) error {
 			data := jobData{}
 			return c.Render(http.StatusOK, "job", data)
 		}
-		user = session.Values["user"].(string)
+		v := session.Values["user"]
+		switch v.(type) {
+		case string:
+			user.Email = v.(string)
+		case User:
+			user = v.(User)
+		}
 	}
 
 	var jobID []string
@@ -522,7 +534,7 @@ func newJob(c echo.Context) error {
 		if cidr != "" && ports != "" && len(proto) > 0 {
 			// var err error
 			for i := range proto {
-				id, err := saveJob(cidr, ports, proto[i], user)
+				id, err := saveJob(cidr, ports, proto[i], user.Email)
 				if err != nil {
 					return c.String(http.StatusInternalServerError, err.Error())
 				}

@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -29,6 +30,11 @@ type User struct {
 	GivenName  string `json:"given_name"`
 	FamilyName string `json:"family_name"`
 	Email      string `json:"email"`
+	Picture    string `json:"picture"`
+}
+
+func init() {
+	gob.Register(User{})
 }
 
 func oauthConfig() {
@@ -52,7 +58,11 @@ func oauthConfig() {
 		log.Fatalf("couldn't read credentials file: %s", err)
 	}
 
-	conf, err = google.ConfigFromJSON(f, "https://www.googleapis.com/auth/userinfo.email")
+	scopes := []string{
+		"https://www.googleapis.com/auth/userinfo.email",
+		"https://www.googleapis.com/auth/userinfo.profile",
+	}
+	conf, err = google.ConfigFromJSON(f, scopes...)
 	if err != nil {
 		log.Fatalf("couldn't parse OAuth2 config: %s", err)
 	}
@@ -147,7 +157,7 @@ func authHandler(c echo.Context) error {
 	}
 
 	// Store the email in the session
-	session.Values["user"] = user.Email
+	session.Values["user"] = user
 	session.Save(c.Request(), c.Response().Writer)
 
 	// User is logged in. Redirect back to the index page

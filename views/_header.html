@@ -7,6 +7,13 @@
 		<link href="/static/css/bootstrap.min.css" rel="stylesheet">
 		<!-- https://github.com/bassjobsen/typeahead.js-bootstrap-css -->
 		<link href="/static/css/typeaheadjs.css" rel="stylesheet">
+		<style type="text/css">
+			/* Override cursor for disabled menu items */
+			.dropdown-menu > .disabled > a:hover,
+			.dropdown-menu > .disabled > a:focus {
+				cursor: default !important;
+			}
+		</style>
 	</head>
 	<body>
 		<nav class="navbar navbar-default">
@@ -42,11 +49,15 @@
 					<a class="btn btn-primary navbar-btn" href="/job">New scan</a>
 					<a class="btn btn-{{ if .ActiveOnly }}success{{ else }}default{{ end }} navbar-btn" href="/{{ if not .ActiveOnly }}?active{{ end }}">Active only</a>
 						{{- end }}
-						{{- if ne .User "" }}
+						{{- if ne .User.Email "" }}
 					<ul class="nav navbar-nav navbar-right">
 						<li class="dropdown">
-							<a class="navbar-link dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">{{ .User }} <span class="caret"></span></a>
+							<a class="navbar-link dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">{{ or .User.Name .User.Email }}{{ if ne .User.Picture ""}} <img class="img-circle" width=25 height=25 src="{{ .User.Picture }}">{{ end }}<span class="caret"></span></a>
 							<ul class="dropdown-menu">
+								{{- if ne .User.Name "" }}
+								<li class="disabled" style="font-size: smaller"><a>{{ .User.Email }}</a></li>
+								<li role="separator" class="divider"></li>
+								{{- end }}
 								<li><a href="/logout">Logout</a></li>
 							</ul>
 						</li>
