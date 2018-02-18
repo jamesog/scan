@@ -1,8 +1,11 @@
 language: go
-go:
-  - 1.x
-    env: LATEST=true
-  - master
+matrix:
+  include:
+    - go: 1.x
+      env: LATEST=true
+    - go: master
+  allow_failures:
+    - go: master
 
 before_install:
   - sudo apt-get update -qq
