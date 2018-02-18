@@ -43,10 +43,7 @@ func openDB(dsn string) error {
 	if err != nil {
 		return err
 	}
-	if err = db.Ping(); err != nil {
-		return err
-	}
-	return nil
+	return db.Ping()
 }
 
 // NullTime "borrowed" from github.com/lib/pq
