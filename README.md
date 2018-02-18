@@ -5,6 +5,28 @@ Scan is a small web service for recording and displaying [Masscan](https://githu
 ![New data](/new_data.png)
 ![Updated data](/updated_data.png)
 
+## Installation
+
+Install SQLite3. For a Debian system:
+
+```
+sudo apt-get install sqlite3
+```
+
+Or macOS:
+
+```
+brew install sqlite
+```
+
+Install [`dep`](https://github.com/golang/dep#installation) and run `dep ensure`
+to fetch all project dependencies.
+
+```
+dep ensure
+go install
+```
+
 ## Database
 
 Scan stores results in a SQLite database. To initialise it, run:
@@ -37,6 +59,14 @@ Add the email address of each user to be permitted access to the `users` table i
 
 ```
 INSERT INTO users (email) VALUES ('alice@example.com');
+```
+
+If you want to authorise users by a G Suite group you must enable the
+[Admin SDK](https://console.cloud.google.com/apis/api/admin.googleapis.com/overview) on the project
+and add the group address to the `groups` table:
+
+```
+INSERT INTO groups (group_name) VALUES ('scan-users@example.com');
 ```
 
 If you want to disable authentication use the `-no-auth` flag.
