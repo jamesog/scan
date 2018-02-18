@@ -33,6 +33,8 @@ type User struct {
 	Picture    string `json:"picture"`
 }
 
+// GroupMember defines whether the user is a member of a group
+// It is set by the groups `hasMember` API endpoint
 type GroupMember struct {
 	IsMember bool `json:"isMember"`
 }
