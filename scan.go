@@ -1,15 +1,21 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,9 +23,9 @@ import (
 
 	"golang.org/x/crypto/acme/autocert"
 
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
-	"github.com/labstack/gommon/color"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/render"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -31,6 +37,10 @@ var (
 	authDisabled bool
 	credsFile    string
 	dataDir      string
+	httpsAddr    string
+
+	// HTML templates
+	t *template.Template
 
 	// Database handle
 	db     *sql.DB
@@ -263,16 +273,6 @@ func loadTraceroutes() (map[string]struct{}, error) {
 	return ips, nil
 }
 
-// Template is a template
-type Template struct {
-	templates *template.Template
-}
-
-// Render renders template
-func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	return t.templates.ExecuteTemplate(w, name, data)
-}
-
 type indexData struct {
 	Authenticated bool
 	User          User
@@ -338,16 +338,18 @@ func resultData(ip, fs, ls string) (scanData, error) {
 }
 
 // Handler for GET /
-func index(c echo.Context) error {
+func index(w http.ResponseWriter, r *http.Request) {
 	var user User
 	if !authDisabled {
-		session, err := store.Get(c.Request(), "user")
+		session, err := store.Get(r, "user")
 		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		if _, ok := session.Values["user"]; !ok {
 			data := indexData{}
-			return c.Render(http.StatusOK, "index", data)
+			t.ExecuteTemplate(w, "index", data)
+			return
 		}
 		v := session.Values["user"]
 		switch v.(type) {
@@ -358,33 +360,36 @@ func index(c echo.Context) error {
 		}
 	}
 
-	ip := c.QueryParam("ip")
-	firstSeen := c.QueryParam("firstseen")
-	lastSeen := c.QueryParam("lastseen")
-	_, activeOnly := c.QueryParams()["active"]
+	q := r.URL.Query()
+	ip := q.Get("ip")
+	firstSeen := q.Get("firstseen")
+	lastSeen := q.Get("lastseen")
+	_, activeOnly := q["active"]
 
 	results, err := resultData(ip, firstSeen, lastSeen)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	data := indexData{Authenticated: true, User: user, ActiveOnly: activeOnly, scanData: results}
-
-	return c.Render(http.StatusOK, "index", data)
+	t.ExecuteTemplate(w, "index", data)
 }
 
 // Handler for GET /ips.json
 // This is used as the prefetch for Typeahead.js
-func ips(c echo.Context) error {
+func ips(w http.ResponseWriter, r *http.Request) {
 	data, err := loadData(sqlFilter{})
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	var ips []string
 	for _, r := range data {
 		ips = append(ips, r.IP)
 	}
-	return c.JSON(http.StatusOK, ips)
+	render.JSON(w, r, ips)
+	return
 }
 
 type jobTime time.Time
@@ -496,16 +501,18 @@ type jobData struct {
 }
 
 // Handler for GET and POST /job
-func newJob(c echo.Context) error {
+func newJob(w http.ResponseWriter, r *http.Request) {
 	var user User
 	if !authDisabled {
-		session, err := store.Get(c.Request(), "user")
+		session, err := store.Get(r, "user")
 		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		if _, ok := session.Values["user"]; !ok {
 			data := jobData{}
-			return c.Render(http.StatusOK, "job", data)
+			t.ExecuteTemplate(w, "job", data)
+			return
 		}
 		v := session.Values["user"]
 		switch v.(type) {
@@ -518,8 +525,14 @@ func newJob(c echo.Context) error {
 
 	var jobID []string
 
-	if c.Request().Method == "POST" {
-		f, _ := c.FormParams()
+	if r.Method == "POST" {
+		err := r.ParseForm()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		f := r.Form
 		cidr := f.Get("cidr")
 		ports := f.Get("ports")
 		proto := f["proto"]
@@ -534,7 +547,8 @@ func newJob(c echo.Context) error {
 			for i := range proto {
 				id, err := saveJob(cidr, ports, proto[i], user.Email)
 				if err != nil {
-					return c.String(http.StatusInternalServerError, err.Error())
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
 				}
 				jobID = append(jobID, strconv.FormatInt(id, 10))
 			}
@@ -543,7 +557,8 @@ func newJob(c echo.Context) error {
 
 	jobs, err := loadJobs(sqlFilter{})
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	data := jobData{
@@ -552,24 +567,32 @@ func newJob(c echo.Context) error {
 		jobs,
 	}
 
-	return c.Render(http.StatusOK, "job", data)
+	t.ExecuteTemplate(w, "job", data)
+	return
 }
 
 // Handler for GET /jobs
-func jobs(c echo.Context) error {
+func jobs(w http.ResponseWriter, r *http.Request) {
 	jobs, err := loadJobs(sqlFilter{
 		Where: []string{"received IS NULL"},
 	})
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		render.JSON(w, r, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, jobs)
+	render.JSON(w, r, jobs)
 }
 
-func saveResults(c echo.Context) (int64, error) {
+func saveResults(w http.ResponseWriter, r *http.Request) (int64, error) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return 0, errors.New("invalid Content-Type")
+	}
+
 	res := new([]result)
-	err := c.Bind(res)
+
+	err := json.NewDecoder(r.Body).Decode(&res)
 	if err != nil {
 		return 0, err
 	}
@@ -583,18 +606,16 @@ func saveResults(c echo.Context) (int64, error) {
 }
 
 // Handler for POST /results
-func recvResults(c echo.Context) error {
-	_, err := saveResults(c)
+func recvResults(w http.ResponseWriter, r *http.Request) {
+	_, err := saveResults(w, r)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
-
-	return c.NoContent(http.StatusOK)
 }
 
-// Handler for PUT /results/:id
-func recvJobResults(c echo.Context) error {
-	job := c.Param("id")
+// Handler for PUT /results/{id}
+func recvJobResults(w http.ResponseWriter, r *http.Request) {
+	job := chi.URLParam(r, "id")
 
 	// Check if the job ID is valid
 	_, err := loadJobs(sqlFilter{
@@ -602,73 +623,101 @@ func recvJobResults(c echo.Context) error {
 		Values: []interface{}{job},
 	})
 	if err != nil {
-		return c.String(http.StatusBadRequest, err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	// Insert the results as normal
-	count, err := saveResults(c)
+	count, err := saveResults(w, r)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	// Update the job
 	err = updateJob(job, count)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-
-	return c.NoContent(http.StatusOK)
 }
 
 // Handler for POST /traceroute
-func recvTraceroute(c echo.Context) error {
-	dest := c.FormValue("dest")
-	fh, err := c.FormFile("traceroute")
+func recvTraceroute(w http.ResponseWriter, r *http.Request) {
+	dest := r.FormValue("dest")
+	f, _, err := r.FormFile("traceroute")
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	f, err := fh.Open()
+	trace, err := ioutil.ReadAll(f)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	path, err := ioutil.ReadAll(f)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	txn, err := db.Begin()
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	_, err = txn.Exec(`INSERT OR REPLACE INTO traceroute (dest, path) VALUES (?, ?)`, dest, path)
+	_, err = txn.Exec(`INSERT OR REPLACE INTO traceroute (dest, path) VALUES (?, ?)`, dest, trace)
 	if err != nil {
 		txn.Rollback()
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	err = txn.Commit()
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	return c.NoContent(http.StatusOK)
+	w.Header().Set("Location", path.Join(r.URL.Path, dest))
+	w.WriteHeader(http.StatusCreated)
 }
 
-// Handler for GET /traceroute/:ip
-func traceroute(c echo.Context) error {
-	ip := c.Param("ip")
+// Handler for GET /traceroute/{ip}
+func traceroute(w http.ResponseWriter, r *http.Request) {
+	ip := chi.URLParam(r, "ip")
 
 	var path string
 	err := db.QueryRow(`SELECT path FROM traceroute WHERE dest = ?`, ip).Scan(&path)
 	switch {
 	case err == sql.ErrNoRows:
-		return c.String(http.StatusNotFound, "Traceroute not found")
+		http.Error(w, "Traceroute not found", http.StatusNotFound)
+		return
 	case err != nil:
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	return c.String(http.StatusOK, path)
+	io.WriteString(w, path)
+}
+
+// redirectHTTPS is a middleware for redirecting non-HTTPS requests to HTTPS
+func redirectHTTPS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, httpsPort, err := net.SplitHostPort(httpsAddr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if r.URL.Scheme != "https" {
+			url := r.URL
+			url.Scheme = "https"
+			host, _, _ := net.SplitHostPort(r.Host)
+			if httpsPort != "443" {
+				url.Host = net.JoinHostPort(host, httpsPort)
+			}
+			http.Redirect(w, r, url.String(), http.StatusMovedPermanently)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -678,8 +727,8 @@ func main() {
 			"Relative paths are taken as relative to -data.dir")
 	flag.StringVar(&dataDir, "data.dir", ".", "Data directory `path`")
 	httpAddr := flag.String("http.addr", ":80", "HTTP `address`:port")
-	httpsAddr := flag.String("https.addr", ":443", "HTTPS `address`:port")
-	tls := flag.Bool("tls", false, "Enable AutoTLS")
+	flag.StringVar(&httpsAddr, "https.addr", ":443", "HTTPS `address`:port")
+	enableTLS := flag.Bool("tls", false, "Enable AutoTLS")
 	tlsHostname := flag.String("tls.hostname", "", "(Optional) Restrict AutoTLS to `hostname`")
 	flag.Parse()
 
@@ -699,46 +748,58 @@ func main() {
 		},
 	}
 
-	t := &Template{
-		templates: template.Must(template.New("").
-			Funcs(funcMap).
-			ParseGlob(filepath.Join(dataDir, "views/*.html"))),
-	}
+	t = template.Must(template.New("").Funcs(funcMap).
+		ParseGlob(filepath.Join(dataDir, "views/*.html")))
 
-	e := echo.New()
+	r := chi.NewRouter()
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
 
 	if authDisabled {
-		color.Println(color.Red("Authentication Disabled"))
+		fmt.Fprintf(os.Stderr, "%sAuthentication Disabled%s\n", "\033[31m", "\033[0m")
 	}
 
-	if *tls {
-		if *tlsHostname != "" {
-			e.AutoTLSManager.HostPolicy = autocert.HostWhitelist(*tlsHostname)
+	var m *autocert.Manager
+	if *enableTLS {
+		m = &autocert.Manager{
+			Cache:  autocert.DirCache(filepath.Join(dataDir, ".cache")),
+			Prompt: autocert.AcceptTOS,
 		}
-		e.AutoTLSManager.Cache = autocert.DirCache(filepath.Join(dataDir, ".cache"))
-		e.Pre(middleware.HTTPSRedirect())
+		if *tlsHostname != "" {
+			m.HostPolicy = autocert.HostWhitelist(*tlsHostname)
+		}
+		r.Use(redirectHTTPS)
 	}
 
-	e.HideBanner = true
-	e.Renderer = t
-	e.Use(middleware.Logger())
-	e.GET("/", index)
-	e.GET("/auth", authHandler)
-	e.GET("/login", loginHandler)
-	e.GET("/logout", logoutHandler)
-	e.GET("/ips.json", ips)
-	e.Match([]string{"GET", "POST"}, "/job", newJob)
-	e.GET("/jobs", jobs)
-	e.POST("/results", recvResults)
-	e.PUT("/results/:id", recvJobResults)
-	e.Static("/static", filepath.Join(dataDir, "static"))
-	e.POST("/traceroute", recvTraceroute)
-	e.GET("/traceroute/:ip", traceroute)
-	e.GET("/metrics", echo.WrapHandler(metrics()))
+	staticDir := filepath.Join(dataDir, "static")
+	static := http.StripPrefix("/static", http.FileServer(http.Dir(staticDir)))
 
-	if *tls {
-		go func() { e.Logger.Fatal(e.Start(*httpAddr)) }()
-		e.Logger.Fatal(e.StartAutoTLS(*httpsAddr))
+	r.Get("/", index)
+	r.Get("/auth", authHandler)
+	r.Get("/ips.json", ips)
+	r.Route("/job", func(r chi.Router) {
+		r.Get("/", newJob)
+		r.Post("/", newJob)
+	})
+	r.Get("/jobs", jobs)
+	r.Get("/login", loginHandler)
+	r.Get("/logout", logoutHandler)
+	r.Handle("/metrics", metrics())
+	r.Post("/results", recvResults)
+	r.Put("/results/{id}", recvJobResults)
+	r.Get("/static/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		static.ServeHTTP(w, r)
+	}))
+	r.Post("/traceroute", recvTraceroute)
+	r.Get("/traceroute/{ip}", traceroute)
+
+	if *enableTLS {
+		s := &http.Server{
+			Addr:      httpsAddr,
+			TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
+		}
+		go func() { log.Fatal(http.ListenAndServe(*httpAddr, r)) }()
+		log.Fatal(s.ListenAndServeTLS("", ""))
 	}
-	e.Logger.Fatal(e.Start(*httpAddr))
+	log.Fatal(http.ListenAndServe(*httpAddr, r))
 }

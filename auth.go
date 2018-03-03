@@ -14,7 +14,6 @@ import (
 
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	"github.com/labstack/echo"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -86,28 +85,31 @@ func randToken() string {
 }
 
 // loginHandler is just a redirect to the Google login page
-func loginHandler(c echo.Context) error {
+func loginHandler(w http.ResponseWriter, r *http.Request) {
 	state := randToken()
-	session, err := store.Get(c.Request(), "state")
+	session, err := store.Get(r, "state")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	session.Values["state"] = state
-	session.Save(c.Request(), c.Response().Writer)
-	return c.Redirect(http.StatusFound, getLoginURL(state))
+	session.Save(r, w)
+
+	http.Redirect(w, r, getLoginURL(state), http.StatusFound)
 }
 
-func logoutHandler(c echo.Context) error {
-	session, err := store.Get(c.Request(), "user")
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	session, err := store.Get(r, "user")
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	session.Options.MaxAge = -1
-	session.Save(c.Request(), c.Response().Writer)
+	session.Save(r, w)
 
 	// User is logged out. Redirect back to the index page
-	return c.Redirect(http.StatusFound, "/")
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 // AuthSession stores the session and OAuth2 client
@@ -221,27 +223,32 @@ func (s AuthSession) validateGroupMember(email string) (bool, error) {
 
 // authHandler receives the login information from Google and checks if the
 // email address is authorized
-func authHandler(c echo.Context) error {
+func authHandler(w http.ResponseWriter, r *http.Request) {
 	var s AuthSession
 	var err error
-	s.state, err = store.Get(c.Request(), "state")
+	s.state, err = store.Get(r, "state")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	// Check if the user has a valid session
-	if s.state.Values["state"] != c.QueryParam("state") {
-		return c.String(http.StatusUnauthorized, "Invalid session")
+	q := r.URL.Query()
+	if s.state.Values["state"] != q.Get("state") {
+		http.Error(w, "Invalid session", http.StatusUnauthorized)
+		return
 	}
 
-	s.user, err = store.Get(c.Request(), "user")
+	s.user, err = store.Get(r, "user")
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	s.token, err = conf.Exchange(oauth2.NoContext, c.QueryParam("code"))
+	s.token, err = conf.Exchange(oauth2.NoContext, q.Get("code"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	s.client = conf.Client(oauth2.NoContext, s.token)
@@ -254,25 +261,28 @@ func authHandler(c echo.Context) error {
 	user, err := s.userInfo()
 	authorised, err = s.validateUser(user)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	// The user doesn't have an individual entry, check group membership
 	if !authorised {
 		authorised, err = s.validateGroupMember(user.Email)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 	}
 
 	if !authorised {
-		return c.String(http.StatusUnauthorized, fmt.Sprintf("%s is not authorized", user.Email))
+		http.Error(w, fmt.Sprintf("%s is not authorized", user.Email), http.StatusUnauthorized)
+		return
 	}
 
 	// Store the email in the session
 	s.user.Values["user"] = user
-	s.user.Save(c.Request(), c.Response().Writer)
+	s.user.Save(r, w)
 
 	// User is logged in. Redirect back to the index page
-	return c.Redirect(http.StatusFound, "/")
+	http.Redirect(w, r, "/", http.StatusFound)
 }

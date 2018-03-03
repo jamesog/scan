@@ -14,10 +14,19 @@
   revision = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9"
 
 [[projects]]
-  name = "github.com/dgrijalva/jwt-go"
+  name = "github.com/go-chi/chi"
+  packages = [
+    ".",
+    "middleware"
+  ]
+  revision = "e83ac2304db3c50cf03d96a2fcd39009d458bc35"
+  version = "v3.3.2"
+
+[[projects]]
+  name = "github.com/go-chi/render"
   packages = ["."]
-  revision = "d2709f9f1f31ebcda9651b03077758c1f3a0018c"
-  version = "v3.0.0"
+  revision = "9f855fadd4b8cde7773f9ef51f6b2705af239519"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -42,38 +51,6 @@
   packages = ["."]
   revision = "ca9ada44574153444b00d3fd9c8559e4cc95f896"
   version = "v1.1"
-
-[[projects]]
-  name = "github.com/labstack/echo"
-  packages = [
-    ".",
-    "middleware"
-  ]
-  revision = "935a60782cbbc55110e7bd4b33120e4567cbee43"
-  version = "v3.2.1"
-
-[[projects]]
-  name = "github.com/labstack/gommon"
-  packages = [
-    "bytes",
-    "color",
-    "log",
-    "random"
-  ]
-  revision = "1121fd3e243c202482226a7afe4dcd07ffc4139a"
-  version = "v0.2.1"
-
-[[projects]]
-  name = "github.com/mattn/go-colorable"
-  packages = ["."]
-  revision = "941b50ebc6efddf4c41c8e4537a5f68a4e686b24"
-  version = "v0.0.8"
-
-[[projects]]
-  name = "github.com/mattn/go-isatty"
-  packages = ["."]
-  revision = "fc9e8d8ef48496124e79ae0df75490096eccf6fe"
-  version = "v0.0.2"
 
 [[projects]]
   name = "github.com/mattn/go-sqlite3"
@@ -123,18 +100,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/valyala/bytebufferpool"
-  packages = ["."]
-  revision = "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/valyala/fasttemplate"
-  packages = ["."]
-  revision = "dcecefd839c4193db0d35b88ec65b4c12d360ab0"
-
-[[projects]]
-  branch = "master"
   name = "golang.org/x/crypto"
   packages = [
     "acme",
@@ -164,12 +129,6 @@
   revision = "f047394b6d14284165300fd82dad67edb3a4d7f6"
 
 [[projects]]
-  branch = "master"
-  name = "golang.org/x/sys"
-  packages = ["unix"]
-  revision = "c23410a886927bab8ca5e80b08af6a56faeb330d"
-
-[[projects]]
   name = "google.golang.org/appengine"
   packages = [
     ".",
@@ -189,6 +148,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "943aea63653522ec8cb06eda10acbdb59e0cd683bd8800892991e87380698ae3"
+  inputs-digest = "8df1403e6f095039dc5606936a96b9901d20c564ec1a90a1a016b861ee6db953"
   solver-name = "gps-cdcl"
   solver-version = 1
