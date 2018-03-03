@@ -40,7 +40,7 @@ var (
 	httpsAddr    string
 
 	// HTML templates
-	t *template.Template
+	tmpl *template.Template
 
 	// Database handle
 	db     *sql.DB
@@ -348,7 +348,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, ok := session.Values["user"]; !ok {
 			data := indexData{}
-			t.ExecuteTemplate(w, "index", data)
+			tmpl.ExecuteTemplate(w, "index", data)
 			return
 		}
 		v := session.Values["user"]
@@ -373,7 +373,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := indexData{Authenticated: true, User: user, ActiveOnly: activeOnly, scanData: results}
-	t.ExecuteTemplate(w, "index", data)
+	tmpl.ExecuteTemplate(w, "index", data)
 }
 
 // Handler for GET /ips.json
@@ -511,7 +511,7 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, ok := session.Values["user"]; !ok {
 			data := jobData{}
-			t.ExecuteTemplate(w, "job", data)
+			tmpl.ExecuteTemplate(w, "job", data)
 			return
 		}
 		v := session.Values["user"]
@@ -567,7 +567,7 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 		jobs,
 	}
 
-	t.ExecuteTemplate(w, "job", data)
+	tmpl.ExecuteTemplate(w, "job", data)
 	return
 }
 
@@ -720,6 +720,17 @@ func redirectHTTPS(next http.Handler) http.Handler {
 	})
 }
 
+func setupTemplates() {
+	funcMap := template.FuncMap{
+		"join": func(sep string, s []string) string {
+			return strings.Join(s, sep)
+		},
+	}
+
+	tmpl = template.Must(template.New("").Funcs(funcMap).
+		ParseGlob(filepath.Join(dataDir, "views/*.html")))
+}
+
 func main() {
 	flag.BoolVar(&authDisabled, "no-auth", false, "Disable authentication")
 	flag.StringVar(&credsFile, "credentials", "client_secret.json",
@@ -742,14 +753,7 @@ func main() {
 		log.Fatalf("failed to open database: %v", err)
 	}
 
-	funcMap := template.FuncMap{
-		"join": func(sep string, s []string) string {
-			return strings.Join(s, sep)
-		},
-	}
-
-	t = template.Must(template.New("").Funcs(funcMap).
-		ParseGlob(filepath.Join(dataDir, "views/*.html")))
+	setupTemplates()
 
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
