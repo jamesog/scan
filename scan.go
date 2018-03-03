@@ -182,7 +182,7 @@ func saveData(results []result) (int64, error) {
 		txn.Rollback()
 		return 0, err
 	}
-	qry, err := db.Prepare(`SELECT 1 FROM scan WHERE ip=? AND port=? AND proto=?`)
+	qry, err := txn.Prepare(`SELECT 1 FROM scan WHERE ip=? AND port=? AND proto=?`)
 	if err != nil {
 		txn.Rollback()
 		return 0, err
@@ -220,6 +220,7 @@ func saveData(results []result) (int64, error) {
 				txn.Rollback()
 				return 0, err
 			}
+			count++
 			continue
 		case err != nil:
 			txn.Rollback()
