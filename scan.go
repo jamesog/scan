@@ -726,10 +726,13 @@ func redirectHTTPS(next http.Handler) http.Handler {
 	})
 }
 
-func setupRouter() *chi.Mux {
+func setupRouter(middlewares ...func(http.Handler) http.Handler) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
+	for _, mw := range middlewares {
+		r.Use(mw)
+	}
 
 	staticDir := filepath.Join(dataDir, "static")
 	static := http.StripPrefix("/static", http.FileServer(http.Dir(staticDir)))
@@ -791,7 +794,7 @@ func main() {
 
 	setupTemplates()
 
-	r := setupRouter()
+	var middlewares []func(http.Handler) http.Handler
 
 	if authDisabled {
 		fmt.Fprintf(os.Stderr, "%sAuthentication Disabled%s\n", "\033[31m", "\033[0m")
@@ -806,8 +809,10 @@ func main() {
 		if *tlsHostname != "" {
 			m.HostPolicy = autocert.HostWhitelist(*tlsHostname)
 		}
-		r.Use(redirectHTTPS)
+		middlewares = append(middlewares, redirectHTTPS)
 	}
+
+	r := setupRouter(middlewares...)
 
 	httpSrv := &http.Server{
 		Addr:         *httpAddr,
