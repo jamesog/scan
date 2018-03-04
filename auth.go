@@ -274,13 +274,13 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if !authorised {
-		http.Error(w, fmt.Sprintf("%s is not authorized", user.Email), http.StatusUnauthorized)
-		return
+	if authorised {
+		// Store the information in the session
+		s.user.Values["user"] = user
+	} else {
+		s.user.AddFlash(fmt.Sprintf("%s is not authorised", user.Email), "unauth_flash")
 	}
 
-	// Store the email in the session
-	s.user.Values["user"] = user
 	s.user.Save(r, w)
 
 	// User is logged in. Redirect back to the index page

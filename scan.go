@@ -274,6 +274,7 @@ func loadTraceroutes() (map[string]struct{}, error) {
 }
 
 type indexData struct {
+	NotAuth       string
 	Authenticated bool
 	User          User
 	ActiveOnly    bool
@@ -348,6 +349,11 @@ func index(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, ok := session.Values["user"]; !ok {
 			data := indexData{}
+			if flash := session.Flashes("unauth_flash"); len(flash) > 0 {
+				data.NotAuth = flash[0].(string)
+			}
+			session.Save(r, w)
+			w.WriteHeader(http.StatusUnauthorized)
 			tmpl.ExecuteTemplate(w, "index", data)
 			return
 		}
