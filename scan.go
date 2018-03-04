@@ -712,12 +712,17 @@ func redirectHTTPS(next http.Handler) http.Handler {
 			return
 		}
 
-		if r.URL.Scheme != "https" {
+		if r.TLS == nil {
 			url := r.URL
 			url.Scheme = "https"
-			host, _, _ := net.SplitHostPort(r.Host)
+			host, _, err := net.SplitHostPort(r.Host)
+			if err != nil {
+				url.Host = r.Host
+			} else {
+				url.Host = host
+			}
 			if httpsPort != "443" {
-				url.Host = net.JoinHostPort(host, httpsPort)
+				url.Host = net.JoinHostPort(url.Host, httpsPort)
 			}
 			http.Redirect(w, r, url.String(), http.StatusMovedPermanently)
 			return
