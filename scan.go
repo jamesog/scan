@@ -720,6 +720,36 @@ func redirectHTTPS(next http.Handler) http.Handler {
 	})
 }
 
+func setupRouter() *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+
+	staticDir := filepath.Join(dataDir, "static")
+	static := http.StripPrefix("/static", http.FileServer(http.Dir(staticDir)))
+
+	r.Get("/", index)
+	r.Get("/auth", authHandler)
+	r.Get("/ips.json", ips)
+	r.Route("/job", func(r chi.Router) {
+		r.Get("/", newJob)
+		r.Post("/", newJob)
+	})
+	r.Get("/jobs", jobs)
+	r.Get("/login", loginHandler)
+	r.Get("/logout", logoutHandler)
+	r.Handle("/metrics", metrics())
+	r.Post("/results", recvResults)
+	r.Put("/results/{id}", recvJobResults)
+	r.Get("/static/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		static.ServeHTTP(w, r)
+	}))
+	r.Post("/traceroute", recvTraceroute)
+	r.Get("/traceroute/{ip}", traceroute)
+
+	return r
+}
+
 func setupTemplates() {
 	funcMap := template.FuncMap{
 		"join": func(sep string, s []string) string {
@@ -755,9 +785,7 @@ func main() {
 
 	setupTemplates()
 
-	r := chi.NewRouter()
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r := setupRouter()
 
 	if authDisabled {
 		fmt.Fprintf(os.Stderr, "%sAuthentication Disabled%s\n", "\033[31m", "\033[0m")
@@ -775,27 +803,6 @@ func main() {
 		r.Use(redirectHTTPS)
 	}
 
-	staticDir := filepath.Join(dataDir, "static")
-	static := http.StripPrefix("/static", http.FileServer(http.Dir(staticDir)))
-
-	r.Get("/", index)
-	r.Get("/auth", authHandler)
-	r.Get("/ips.json", ips)
-	r.Route("/job", func(r chi.Router) {
-		r.Get("/", newJob)
-		r.Post("/", newJob)
-	})
-	r.Get("/jobs", jobs)
-	r.Get("/login", loginHandler)
-	r.Get("/logout", logoutHandler)
-	r.Handle("/metrics", metrics())
-	r.Post("/results", recvResults)
-	r.Put("/results/{id}", recvJobResults)
-	r.Get("/static/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		static.ServeHTTP(w, r)
-	}))
-	r.Post("/traceroute", recvTraceroute)
-	r.Get("/traceroute/{ip}", traceroute)
 
 	if *enableTLS {
 		s := &http.Server{
