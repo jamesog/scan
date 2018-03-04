@@ -351,9 +351,9 @@ func index(w http.ResponseWriter, r *http.Request) {
 			data := indexData{}
 			if flash := session.Flashes("unauth_flash"); len(flash) > 0 {
 				data.NotAuth = flash[0].(string)
+				w.WriteHeader(http.StatusUnauthorized)
+				session.Save(r, w)
 			}
-			session.Save(r, w)
-			w.WriteHeader(http.StatusUnauthorized)
 			tmpl.ExecuteTemplate(w, "index", data)
 			return
 		}
