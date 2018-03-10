@@ -86,17 +86,26 @@ func randToken() string {
 
 // loginHandler is just a redirect to the Google login page
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	state := randToken()
-	session, err := store.Get(r, "state")
+	tok := randToken()
+	state, err := store.Get(r, "state")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	session.Values["state"] = state
-	session.Save(r, w)
+	// State only needs to be valid for 5 mins
+	state.Options.MaxAge = 300
+	state.Values["state"] = tok
 
-	http.Redirect(w, r, getLoginURL(state), http.StatusFound)
+	// Store a redirect URL to send the user back to the page they were on
+	redir, _ := store.Get(r, "redir")
+	redir.Options.MaxAge = 300
+	redir.Values["redir"] = r.URL.Query().Get("redir")
+
+	// Save both sessions
+	sessions.Save(r, w)
+
+	http.Redirect(w, r, getLoginURL(tok), http.StatusFound)
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -239,6 +248,16 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Attempt to fetch the redirect URI from the store
+	uri := "/"
+	redir, _ := store.Get(r, "redir")
+	if u := redir.Values["redir"]; u != "" {
+		uri = u.(string)
+	}
+	// Destroy the redirect session, it isn't needed any more
+	redir.Options.MaxAge = -1
+	redir.Save(r, w)
+
 	s.user, err = store.Get(r, "user")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -284,5 +303,5 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	s.user.Save(r, w)
 
 	// User is logged in. Redirect back to the index page
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, uri, http.StatusFound)
 }

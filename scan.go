@@ -277,6 +277,7 @@ type indexData struct {
 	NotAuth       string
 	Authenticated bool
 	User          User
+	URI           string
 	ActiveOnly    bool
 	scanData
 }
@@ -348,7 +349,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, ok := session.Values["user"]; !ok {
-			data := indexData{}
+			data := indexData{URI: r.RequestURI}
 			if flash := session.Flashes("unauth_flash"); len(flash) > 0 {
 				data.NotAuth = flash[0].(string)
 				w.WriteHeader(http.StatusUnauthorized)
@@ -378,7 +379,12 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := indexData{Authenticated: true, User: user, ActiveOnly: activeOnly, scanData: results}
+	data := indexData{
+		Authenticated: true,
+		User:          user,
+		ActiveOnly:    activeOnly,
+		scanData:      results,
+	}
 	tmpl.ExecuteTemplate(w, "index", data)
 }
 
@@ -516,7 +522,7 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, ok := session.Values["user"]; !ok {
-			data := jobData{}
+			data := jobData{indexData: indexData{URI: r.RequestURI}}
 			tmpl.ExecuteTemplate(w, "job", data)
 			return
 		}

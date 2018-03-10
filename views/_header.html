@@ -73,7 +73,7 @@
 						{{- end }}
 					{{- else }}
 					<ul class="nav navbar-nav navbar-right">
-						<li><a href="/login">Login</a></li>
+						<li><a href="/login{{ if .URI }}?redir={{ .URI }}{{ end }}">Login</a></li>
 					</ul>
 					{{- end }}
 				</div>
