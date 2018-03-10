@@ -1,8 +1,21 @@
 {{ define "job" -}}
 {{ template "header" . }}
-				{{- if .Authenticated }}
+	{{- if .Authenticated }}
 				{{- if gt (len .JobID) 0 }}
 				<p>Job {{ .JobID | join ", " }} submitted.</p>
+				{{- end }}
+				{{- if gt (len .Errors) 0 }}
+				<div class="panel panel-danger " style="width: 25%">
+					<div class="panel-heading"><h3 class="panel-title">Missing information</h3></div>
+					<div class="panel-body">
+						The following information was not supplied:
+						<ul>
+							{{- range .Errors }}
+							<li>{{ . }}</li>
+							{{- end }}
+						</ul>
+					</div>
+				</div>
 				{{- end }}
 				<form class="form-inline" action="/job" method="POST">
 					<div class="form-group">
@@ -48,6 +61,6 @@
 						</tbody>
 					</table>
 				</div>
-				{{- end }}
+	{{- end }}
 {{- template "footer" }}
 {{- end }}

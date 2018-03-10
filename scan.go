@@ -275,6 +275,7 @@ func loadTraceroutes() (map[string]struct{}, error) {
 
 type indexData struct {
 	NotAuth       string
+	Errors        []string
 	Authenticated bool
 	User          User
 	URI           string
@@ -537,6 +538,7 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var jobID []string
+	var errors []string
 
 	if r.Method == "POST" {
 		err := r.ParseForm()
@@ -550,13 +552,19 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 		ports := f.Get("ports")
 		proto := f["proto"]
 
+		if cidr == "" {
+			errors = append(errors, "CIDR")
+		}
+		if ports == "" {
+			errors = append(errors, "Ports")
+		}
+		if len(proto) == 0 {
+			errors = append(errors, "Protocol")
+		}
+
 		// If we have form parameters, save the data as a new job.
 		// Multiple protocols can be submitted. These are saved as separate jobs.
-		//
-		// TODO(jamesog): Turn the logic around and add a message in the
-		// browser if parameters were missing.
-		if cidr != "" && ports != "" && len(proto) > 0 {
-			// var err error
+		if len(errors) == 0 {
 			for i := range proto {
 				id, err := saveJob(cidr, ports, proto[i], user.Email)
 				if err != nil {
@@ -581,6 +589,7 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 
 	data := jobData{
 		indexData: indexData{
+			Errors:        errors,
 			Authenticated: true,
 			User:          user,
 			URI:           r.URL.Path,
