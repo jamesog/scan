@@ -573,10 +573,19 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch result numbers for display in the navbar
+	// Errors aren't fatal here, we can just display 0 results if something
+	// goes wrong
+	results, _ := resultData("", "", "")
+
 	data := jobData{
-		indexData{Authenticated: true, User: user},
-		jobID,
-		jobs,
+		indexData: indexData{
+			Authenticated: true,
+			User:          user,
+			scanData:      results,
+		},
+		JobID: jobID,
+		Jobs:  jobs,
 	}
 
 	tmpl.ExecuteTemplate(w, "job", data)
