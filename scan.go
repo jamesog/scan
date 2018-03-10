@@ -382,6 +382,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	data := indexData{
 		Authenticated: true,
 		User:          user,
+		URI:           r.URL.Path,
 		ActiveOnly:    activeOnly,
 		scanData:      results,
 	}
@@ -582,6 +583,7 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 		indexData: indexData{
 			Authenticated: true,
 			User:          user,
+			URI:           r.URL.Path,
 			scanData:      results,
 		},
 		JobID: jobID,
