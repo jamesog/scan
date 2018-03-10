@@ -79,6 +79,12 @@
 				</div>
 			</div>
 		</nav>
+		{{- if not .Authenticated }}
+		<div class="panel panel-info center-block" style="width: 25%">
+			<div class="panel-heading"><h3 class="panel-title">Login required</h3></div>
+			<div class="panel-body">Please log in to view data</div>
+		</div>
+		{{- end }}
 		<div class="container-fluid">
 			<div class="main">
 {{- end }}

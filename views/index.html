@@ -1,5 +1,6 @@
 {{ define "index" -}}
 {{ template "header" . }}
+	{{- if .Authenticated }}
 				<div class="table-responsive">
 					<table class="table table-striped table-hover">
 						<thead>
@@ -33,5 +34,6 @@
 						</tbody>
 					</table>
 				</div> <!-- table-responsive -->
+	{{- end }}
 {{- template "footer" }}
 {{- end }}
