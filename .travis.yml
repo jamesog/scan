@@ -28,7 +28,14 @@ script:
   - go build -v
 
 after_success:
-  - tar zcvf scan_${TRAVIS_TAG}_linux_amd64.tar.gz scan views static
+  - DEST=scan-${TRAVIS_TAG:-$(git describe)}
+  - mkdir $DEST
+  - mkdir $DEST/views
+  - mkdir $DEST/static
+  - install scan $DEST
+  - cp views/* $DEST/views
+  - cp static/* $DEST/static
+  - tar zcvf scan_${TRAVIS_TAG:-$(git describe)}_linux_amd64.tar.gz $DEST
 
 deploy:
   provider: releases
