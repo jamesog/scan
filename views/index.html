@@ -30,6 +30,11 @@
 								<td>{{ .LastSeen }}</td>
 								{{- end }}
 							</tr>
+							{{- else }}
+							<div class="panel panel-warning center-block" style="width: 25%">
+								<div class="panel-heading"><h3 class="panel-title">No results</h3></div>
+								<div class="panel-body">No results found</div>
+							</div>
 							{{- end }}
 						</tbody>
 					</table>
