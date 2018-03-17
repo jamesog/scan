@@ -9,3 +9,7 @@
 [[constraint]]
   name = "github.com/go-chi/render"
   version = "v1.0.0"
+
+[[constraint]]
+  name = "github.com/pressly/goose"
+  version = "2.1.0"

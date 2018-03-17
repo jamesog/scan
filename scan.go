@@ -27,6 +27,9 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pressly/goose"
+
+	_ "github.com/jamesog/scan/migrations"
 )
 
 // Human-readable date-time format
@@ -53,7 +56,29 @@ func openDB(dsn string) error {
 	if err != nil {
 		return err
 	}
-	return db.Ping()
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Run migrations
+	goose.SetDialect("sqlite3")
+	// Use a temporary directory for goose.Up() - we don't have any .sql files
+	// to run, it's all embedded in the binary
+	tmpdir, err := ioutil.TempDir(dataDir, "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(tmpdir)
+	log.Println("Checking database migration status")
+	goose.Status(db, tmpdir)
+	err = goose.Up(db, tmpdir)
+	if err != nil {
+		log.Fatalf("Error running database migrations: %v\n", err)
+	}
+
+	return nil
 }
 
 // NullTime "borrowed" from github.com/lib/pq

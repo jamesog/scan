@@ -20,20 +20,6 @@ func createDB(test string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// TODO(jamesog): Load schema from a file
-	schema := []string{
-		`CREATE TABLE scan (ip text, port integer, proto text, firstseen datetime, lastseen datetime)`,
-		`CREATE TABLE users (email text UNIQUE NOT NULL)`,
-		`CREATE TABLE groups (group_name text UNIQUE NOT NULL)`,
-		`CREATE TABLE job (id int, cidr text NOT NULL, ports text, proto text, requested_by text, submitted datetime, received datetime, count int)`,
-		`CREATE TABLE traceroute (dest text UNIQUE NOT NULL, path text)`,
-	}
-	for _, stmt := range schema {
-		_, err = db.Exec(stmt)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
 }
 
 func destroyDB() {
