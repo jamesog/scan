@@ -171,6 +171,7 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 	for rows.Next() {
 		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
 		if err != nil {
+			log.Println("loadData: error scanning table:", err)
 			return []ipInfo{}, err
 		}
 		if lastseen.After(latest) {
@@ -460,6 +461,7 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 	qry := fmt.Sprintf(`SELECT rowid, cidr, ports, proto, requested_by, submitted, received, count FROM job %s ORDER BY received DESC, submitted, rowid`, filter)
 	rows, err := db.Query(qry, filter.Values...)
 	if err != nil {
+		log.Printf("loadJobs: error scanning table: %v\n", err)
 		return []job{}, err
 	}
 
