@@ -431,29 +431,29 @@ func ips(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-type jobTime time.Time
+type scanTime time.Time
 
-func (jt jobTime) String() string {
-	t := time.Time(jt)
+func (st scanTime) String() string {
+	t := time.Time(st)
 	if t.IsZero() {
 		return ""
 	}
 	return t.Format(dateTime)
 }
 
-func (jt jobTime) IsZero() bool {
-	return time.Time(jt).IsZero()
+func (st scanTime) IsZero() bool {
+	return time.Time(st).IsZero()
 }
 
 type job struct {
-	ID          int     `json:"id"`
-	CIDR        string  `json:"cidr"`
-	Ports       string  `json:"ports"`
-	Proto       string  `json:"proto"`
-	RequestedBy string  `json:"-"`
-	Submitted   jobTime `json:"-"`
-	Received    jobTime `json:"-"`
-	Count       int64   `json:"-"`
+	ID          int      `json:"id"`
+	CIDR        string   `json:"cidr"`
+	Ports       string   `json:"ports"`
+	Proto       string   `json:"proto"`
+	RequestedBy string   `json:"-"`
+	Submitted   scanTime `json:"-"`
+	Received    scanTime `json:"-"`
+	Count       int64    `json:"-"`
 }
 
 func loadJobs(filter sqlFilter) ([]job, error) {
@@ -479,7 +479,7 @@ func loadJobs(filter sqlFilter) ([]job, error) {
 			return []job{}, err
 		}
 
-		jobs = append(jobs, job{id, cidr, ports, proto, requestedBy, jobTime(submitted), jobTime(received.Time), count.Int64})
+		jobs = append(jobs, job{id, cidr, ports, proto, requestedBy, scanTime(submitted), scanTime(received.Time), count.Int64})
 	}
 
 	return jobs, nil
