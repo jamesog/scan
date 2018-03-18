@@ -39,6 +39,9 @@
 						</tbody>
 					</table>
 				</div> <!-- table-responsive -->
+				{{- if .Submission.Time }}
+				<div><small>Last submission at {{ .Submission.Time }} by {{ .Submission.Host }}{{ if .Submission.Job }} for job {{ .Submission.Job }}{{ end }}</small></div>
+				{{- end }}
 	{{- end }}
 {{- template "footer" }}
 {{- end }}

@@ -105,6 +105,14 @@ func (nt NullTime) Value() (driver.Value, error) {
 	return nt.Time, nil
 }
 
+func toNullInt64(i *int64) sql.NullInt64 {
+	var ni sql.NullInt64
+	if i != nil {
+		ni = sql.NullInt64{Int64: *i, Valid: true}
+	}
+	return ni
+}
+
 // sqlFilter is for constructing data filters ("WHERE" clauses) in a SQL statement
 type sqlFilter struct {
 	Where  []string
@@ -276,6 +284,49 @@ func saveData(results []result) (int64, error) {
 	return count, nil
 }
 
+func loadSubmission(filter sqlFilter) (submission, error) {
+	var host string
+	var job sql.NullInt64
+	var subTime NullTime
+
+	qry := fmt.Sprintf(`SELECT host, job_id, submission_time FROM submission %s ORDER BY rowid DESC LIMIT 1`, filter)
+	err := db.QueryRow(qry, filter.Values...).Scan(&host, &job, &subTime)
+	if err != nil && err != sql.ErrNoRows {
+		log.Println("loadSubmission: error scanning table:", err)
+		return submission{}, err
+	}
+
+	return submission{Host: host, Job: job.Int64, Time: scanTime(subTime.Time)}, nil
+}
+
+func loadJobSubmission() (submission, error) {
+	f := sqlFilter{
+		Where: []string{"job_id IS NOT NULL"},
+	}
+	return loadSubmission(f)
+}
+
+func saveSubmission(host string, job *int64) error {
+	txn, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	qry := `INSERT INTO submission (host, job_id, submission_time) VALUES (?, ?, ?)`
+	_, err = txn.Exec(qry, host, toNullInt64(job), time.Now())
+	if err != nil {
+		txn.Rollback()
+		return err
+	}
+
+	err = txn.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func loadTraceroutes() (map[string]struct{}, error) {
 	ips := make(map[string]struct{})
 
@@ -306,6 +357,7 @@ type indexData struct {
 	User          User
 	URI           string
 	ActiveOnly    bool
+	Submission    submission
 	scanData
 }
 
@@ -315,6 +367,12 @@ type scanData struct {
 	New      int
 	LastSeen string
 	Results  []ipInfo
+}
+
+type submission struct {
+	Host string
+	Job  int64
+	Time scanTime
 }
 
 func resultData(ip, fs, ls string) (scanData, error) {
@@ -406,11 +464,18 @@ func index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sub, err := loadSubmission(sqlFilter{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	data := indexData{
 		Authenticated: true,
 		User:          user,
 		URI:           r.URL.Path,
 		ActiveOnly:    activeOnly,
+		Submission:    sub,
 		scanData:      results,
 	}
 	tmpl.ExecuteTemplate(w, "index", data)
@@ -609,6 +674,13 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sub, err := loadJobSubmission()
+	if err != nil {
+		log.Println("newJob: couldn't load submissions:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// Fetch result numbers for display in the navbar
 	// Errors aren't fatal here, we can just display 0 results if something
 	// goes wrong
@@ -620,6 +692,7 @@ func newJob(w http.ResponseWriter, r *http.Request) {
 			Authenticated: true,
 			User:          user,
 			URI:           r.URL.Path,
+			Submission:    sub,
 			scanData:      results,
 		},
 		JobID: jobID,
@@ -668,6 +741,18 @@ func saveResults(w http.ResponseWriter, r *http.Request) (int64, error) {
 func recvResults(w http.ResponseWriter, r *http.Request) {
 	_, err := saveResults(w, r)
 	if err != nil {
+		log.Println("recvResults: error saving results:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		ip = r.RemoteAddr
+	}
+	err = saveSubmission(ip, nil)
+	if err != nil {
+		log.Println("recvResults: error saving submission:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -704,6 +789,19 @@ func recvJobResults(w http.ResponseWriter, r *http.Request) {
 	// Update the job
 	err = updateJob(job, count)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		ip = r.RemoteAddr
+	}
+	id, _ := strconv.ParseInt(job, 10, 64)
+
+	err = saveSubmission(ip, &id)
+	if err != nil {
+		log.Println("recvJobResults: error saving submission:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

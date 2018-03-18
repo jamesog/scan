@@ -31,36 +31,41 @@
 					</div>
 					<button type="submit" class="btn btn-default">Submit</button>
 				</form>
-				<div class="table-responsive col-md-7">
-					<table class="table table-striped table-hover">
-						<thead>
-							<tr>
-								<th>ID</th>
-								<th>CIDR</th>
-								<th>Ports</th>
-								<th>Proto</th>
-								<th>Submitted</th>
-								<th>Received</th>
-								<th>Count</th>
-								<th>Requested by</th>
-							</tr>
-						</thead>
-						<tbody>
-							{{- range .Jobs }}
-							<tr>
-								<td>{{ .ID }}</td>
-								<td>{{ .CIDR }}</td>
-								<td>{{ .Ports }}</td>
-								<td>{{ .Proto }}</td>
-								<td>{{ .Submitted }}</td>
-								<td>{{ or .Received "Waiting" }}</td>
-								<td>{{ if not .Received.IsZero }}{{ .Count }}{{ end }}</td>
-								<td>{{ .RequestedBy }}</td>
-							</tr>
-							{{- end }}
-						</tbody>
-					</table>
+				<div class="row">
+					<div class="table-responsive col-md-7">
+						<table class="table table-striped table-hover">
+							<thead>
+								<tr>
+									<th>ID</th>
+									<th>CIDR</th>
+									<th>Ports</th>
+									<th>Proto</th>
+									<th>Submitted</th>
+									<th>Received</th>
+									<th>Count</th>
+									<th>Requested by</th>
+								</tr>
+							</thead>
+							<tbody>
+								{{- range .Jobs }}
+								<tr>
+									<td>{{ .ID }}</td>
+									<td>{{ .CIDR }}</td>
+									<td>{{ .Ports }}</td>
+									<td>{{ .Proto }}</td>
+									<td>{{ .Submitted }}</td>
+									<td>{{ or .Received "Waiting" }}</td>
+									<td>{{ if not .Received.IsZero }}{{ .Count }}{{ end }}</td>
+									<td>{{ .RequestedBy }}</td>
+								</tr>
+								{{- end }}
+							</tbody>
+						</table>
+					</div>
 				</div>
+				{{- if .Submission.Time }}
+				<div class="row"><small>Last submission at {{ .Submission.Time }} by {{ .Submission.Host }}{{ if .Submission.Job }} for job {{ .Submission.Job }}{{ end }}</small></div>
+				{{- end }}
 	{{- end }}
 {{- template "footer" }}
 {{- end }}
