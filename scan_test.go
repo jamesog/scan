@@ -95,7 +95,7 @@ func TestSaveJob(t *testing.T) {
 func TestResultData(t *testing.T) {
 	createDB("TestResultData")
 	defer destroyDB()
-	want := scanData{0, 0, 0, "0001-01-01 00:00", nil}
+	want := scanData{Total: 0, Latest: 0, New: 0, LastSeen: "0001-01-01 00:00", Results: nil}
 	data, err := resultData("", "", "")
 	if err != nil {
 		t.Fatal(err)
@@ -274,6 +274,9 @@ func TestJobResultsHandler(t *testing.T) {
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
+	// We need to save some job data before trying to submit any
+	saveJob("192.0.2.1", "80", "tcp", "testuser@example.com")
+
 	req, err := http.NewRequest("PUT", ts.URL+"/results/1", data)
 	if err != nil {
 		t.Fatal(err)
@@ -286,6 +289,15 @@ func TestJobResultsHandler(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status 200, got %v", resp.StatusCode)
+	}
+
+	// Do it again - submitting the same job should be an error
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %v", resp.StatusCode)
 	}
 }
 
