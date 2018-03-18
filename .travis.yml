@@ -34,7 +34,7 @@ after_success:
   - mkdir $DEST/static
   - install scan $DEST
   - cp views/* $DEST/views
-  - cp static/* $DEST/static
+  - cp -R static/* $DEST/static
   - tar zcvf scan_${TRAVIS_TAG:-$(git describe)}_linux_amd64.tar.gz $DEST
 
 deploy:
