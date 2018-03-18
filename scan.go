@@ -677,12 +677,20 @@ func recvJobResults(w http.ResponseWriter, r *http.Request) {
 	job := chi.URLParam(r, "id")
 
 	// Check if the job ID is valid
-	_, err := loadJobs(sqlFilter{
+	jobs, err := loadJobs(sqlFilter{
 		Where:  []string{"rowid=?"},
 		Values: []interface{}{job},
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(jobs) == 0 {
+		http.Error(w, "Job does not exist", http.StatusBadRequest)
+		return
+	}
+	if !jobs[0].Received.IsZero() {
+		http.Error(w, "Job already submitted", http.StatusBadRequest)
 		return
 	}
 
