@@ -1012,9 +1012,10 @@ func main() {
 				},
 			},
 		}
-		go func() { log.Fatal(httpSrv.ListenAndServe()) }()
-		log.Fatal(httpsSrv.ListenAndServeTLS("", ""))
+		log.Println("HTTPS server starting on", httpsSrv.Addr)
+		go func() { log.Fatal(httpsSrv.ListenAndServeTLS("", "")) }()
 	}
 
+	log.Println("HTTP server starting on", httpSrv.Addr)
 	log.Fatal(httpSrv.ListenAndServe())
 }
