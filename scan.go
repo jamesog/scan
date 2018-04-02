@@ -28,6 +28,7 @@ import (
 	"github.com/go-chi/render"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose"
+	"github.com/prometheus/client_golang/prometheus"
 
 	_ "github.com/jamesog/scan/migrations"
 )
@@ -734,6 +735,16 @@ func saveResults(w http.ResponseWriter, r *http.Request) (int64, error) {
 		return 0, err
 	}
 
+	// Update metrics with latest data
+	results, err := resultData("", "", "")
+	if err != nil {
+		log.Printf("saveResults: error fetching results for metrics update: %v\n", err)
+	} else {
+		gaugeTotal.Set(float64(results.Total))
+		gaugeLatest.Set(float64(results.Latest))
+		gaugeNew.Set(float64(results.New))
+	}
+
 	return count, nil
 }
 
@@ -805,6 +816,13 @@ func recvJobResults(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Finally, update metrics
+	gaugeJobs.With(prometheus.Labels{
+		"id":        strconv.FormatInt(id, 10),
+		"submitted": strconv.FormatInt(time.Now().Unix(), 10),
+		"received":  strconv.FormatInt(time.Now().Unix(), 10),
+	}).Set(float64(count))
 }
 
 // Handler for POST /traceroute
