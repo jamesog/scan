@@ -929,7 +929,6 @@ func setupRouter(middlewares ...func(http.Handler) http.Handler) *chi.Mux {
 	r.Get("/jobs", jobs)
 	r.Get("/login", loginHandler)
 	r.Get("/logout", logoutHandler)
-	r.Handle("/metrics", metrics())
 	r.Post("/results", recvResults)
 	r.Put("/results/{id}", recvJobResults)
 	r.Get("/static/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -960,9 +959,19 @@ func main() {
 	flag.StringVar(&dataDir, "data.dir", ".", "Data directory `path`")
 	httpAddr := flag.String("http.addr", ":80", "HTTP `address`:port")
 	flag.StringVar(&httpsAddr, "https.addr", ":443", "HTTPS `address`:port")
+	metricsAddr := flag.String("metrics.addr", "localhost:3000", "Metrics `address`:port")
+	metricsTLS := flag.Bool("metrics.tls", false, "Enable AutoTLS for metrics, if -tls enabled\n"+
+		"This is useful when exposing metrics on a public interface")
 	enableTLS := flag.Bool("tls", false, "Enable AutoTLS")
 	tlsHostname := flag.String("tls.hostname", "", "(Optional) Restrict AutoTLS to `hostname`")
 	flag.Parse()
+
+	// Disable TLS on metrics if TLS wasn't generally enabled as autocert
+	// isn't set up.
+	if !*enableTLS && *metricsTLS {
+		log.Println("Info: Disabling -metrics.tls as -tls was not enabled")
+		*metricsTLS = false
+	}
 
 	if !filepath.IsAbs(credsFile) {
 		credsFile = filepath.Join(dataDir, credsFile)
@@ -1004,6 +1013,22 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
+	metricsMux := chi.NewRouter()
+	metricsMux.Use(middleware.RealIP)
+	metricsMux.Use(middleware.Logger)
+	if *metricsTLS {
+		metricsMux.Use(redirectHTTPS)
+	}
+	metricsMux.Handle("/metrics", metrics())
+	metricsSrv := *httpSrv
+	metricsSrv.Addr = *metricsAddr
+	metricsSrv.Handler = metricsMux
+
+	if !*metricsTLS {
+		log.Println("Metrics HTTP server starting on", metricsSrv.Addr)
+		go func() { log.Fatal(metricsSrv.ListenAndServe()) }()
+	}
+
 	if *enableTLS {
 		httpsSrv := &http.Server{
 			Addr:         httpsAddr,
@@ -1029,6 +1054,13 @@ func main() {
 					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 				},
 			},
+		}
+		if *metricsTLS {
+			metricsSrv = *httpsSrv
+			metricsSrv.Addr = *metricsAddr
+			metricsSrv.Handler = metricsMux
+			log.Println("Metrics HTTPS server starting on", metricsSrv.Addr)
+			go func() { log.Fatal(metricsSrv.ListenAndServeTLS("", "")) }()
 		}
 		log.Println("HTTPS server starting on", httpsSrv.Addr)
 		go func() { log.Fatal(httpsSrv.ListenAndServeTLS("", "")) }()
