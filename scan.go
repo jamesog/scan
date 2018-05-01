@@ -42,6 +42,7 @@ var (
 	credsFile    string
 	dataDir      string
 	httpsAddr    string
+	verbose      bool
 
 	// HTML templates
 	tmpl *template.Template
@@ -72,8 +73,14 @@ func openDB(dsn string) error {
 		log.Fatal(err)
 	}
 	defer os.RemoveAll(tmpdir)
-	log.Println("Checking database migration status")
-	goose.Status(db, tmpdir)
+
+	if verbose {
+		log.Println("Checking database migration status")
+		goose.Status(db, tmpdir)
+	} else {
+		// Discard Goose's log output
+		goose.SetLogger(log.New(ioutil.Discard, "", 0))
+	}
 	err = goose.Up(db, tmpdir)
 	if err != nil {
 		log.Fatalf("Error running database migrations: %v\n", err)
@@ -964,6 +971,7 @@ func main() {
 		"This is useful when exposing metrics on a public interface")
 	enableTLS := flag.Bool("tls", false, "Enable AutoTLS")
 	tlsHostname := flag.String("tls.hostname", "", "(Optional) Restrict AutoTLS to `hostname`")
+	flag.BoolVar(&verbose, "v", false, "Enable verbose logging")
 	flag.Parse()
 
 	// Disable TLS on metrics if TLS wasn't generally enabled as autocert
