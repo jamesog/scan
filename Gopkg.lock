@@ -67,8 +67,8 @@
 [[projects]]
   name = "github.com/pressly/goose"
   packages = ["."]
-  revision = "056a4d47dcc4d67fa3947a4f13945a5c690e568b"
-  version = "v2.1.0"
+  revision = "f0b1c6ff8abed229f55afe762a329f940c9965e1"
+  version = "v2.2.0"
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
@@ -154,6 +154,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "442ec6a60da086ac103f3d12990120315d210b8c7e401b988ad5c2a51a3f8dbb"
+  inputs-digest = "62f9bf9cfbd496fcb92af1d502243b46faf755681b93e7bdee2fc03dce1dd1fe"
   solver-name = "gps-cdcl"
   solver-version = 1
