@@ -28,14 +28,16 @@ script:
   - go build -v
 
 after_success:
-  - DEST=scan-${TRAVIS_TAG:-$(git describe)}
+  - VERSION=${TRAVIS_TAG:-$(git describe)}
+  - VERSION=${VERSION#v*}
+  - DEST=scan-${VERSION}
   - mkdir $DEST
   - mkdir $DEST/views
   - mkdir $DEST/static
   - install scan $DEST
   - cp views/* $DEST/views
   - cp -R static/* $DEST/static
-  - tar zcvf scan_${TRAVIS_TAG:-$(git describe)}_linux_amd64.tar.gz $DEST
+  - tar zcvf scan_${VERSION}_linux_amd64.tar.gz $DEST
 
 deploy:
   provider: releases
