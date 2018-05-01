@@ -1005,12 +1005,17 @@ func main() {
 
 	r := setupRouter(middlewares...)
 
+	// Common http.Server timeout values
+	readTimeout := 5 * time.Second
+	writeTimeout := 5 * time.Second
+	idleTimeout := 120 * time.Second
+
 	httpSrv := &http.Server{
 		Addr:         *httpAddr,
 		Handler:      r,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
 	}
 
 	metricsMux := chi.NewRouter()
@@ -1020,9 +1025,13 @@ func main() {
 		metricsMux.Use(redirectHTTPS)
 	}
 	metricsMux.Handle("/metrics", metrics())
-	metricsSrv := *httpSrv
-	metricsSrv.Addr = *metricsAddr
-	metricsSrv.Handler = metricsMux
+	metricsSrv := &http.Server{
+		Addr:         *metricsAddr,
+		Handler:      metricsMux,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
+	}
 
 	if !*metricsTLS {
 		log.Println("Metrics HTTP server starting on", metricsSrv.Addr)
@@ -1030,35 +1039,36 @@ func main() {
 	}
 
 	if *enableTLS {
+		tlsConfig := &tls.Config{
+			GetCertificate:           m.GetCertificate,
+			PreferServerCipherSuites: true,
+			CurvePreferences: []tls.CurveID{
+				tls.CurveP256,
+				tls.X25519,
+			},
+			MinVersion: tls.VersionTLS12,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+		}
+
 		httpsSrv := &http.Server{
 			Addr:         httpsAddr,
 			Handler:      r,
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 5 * time.Second,
-			IdleTimeout:  120 * time.Second,
-
-			TLSConfig: &tls.Config{
-				GetCertificate:           m.GetCertificate,
-				PreferServerCipherSuites: true,
-				CurvePreferences: []tls.CurveID{
-					tls.CurveP256,
-					tls.X25519,
-				},
-				MinVersion: tls.VersionTLS12,
-				CipherSuites: []uint16{
-					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				},
-			},
+			ReadTimeout:  readTimeout,
+			WriteTimeout: writeTimeout,
+			IdleTimeout:  idleTimeout,
+			TLSConfig:    tlsConfig,
 		}
 		if *metricsTLS {
-			metricsSrv = *httpsSrv
 			metricsSrv.Addr = *metricsAddr
 			metricsSrv.Handler = metricsMux
+			metricsSrv.TLSConfig = tlsConfig
 			log.Println("Metrics HTTPS server starting on", metricsSrv.Addr)
 			go func() { log.Fatal(metricsSrv.ListenAndServeTLS("", "")) }()
 		}
