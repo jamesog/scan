@@ -184,6 +184,11 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 		return []ipInfo{}, err
 	}
 
+	submission, err := loadSubmission(sqlFilter{Where: []string{"job_id IS NULL"}})
+	if err == nil {
+		latest = time.Time(submission.Time)
+	}
+
 	for rows.Next() {
 		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
 		if err != nil {
@@ -198,25 +203,14 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 			hasTraceroute = true
 		}
 		data = append(data, ipInfo{
-			ip,
-			port,
-			proto,
-			firstseen.Format(dateTime),
-			lastseen.Format(dateTime),
-			false,
-			false,
-			hasTraceroute})
-	}
-
-	for i := range data {
-		f, _ := time.Parse(dateTime, data[i].FirstSeen)
-		l, _ := time.Parse(dateTime, data[i].LastSeen)
-		if f.Equal(l) && l == latest {
-			data[i].New = true
-		}
-		if l.Before(latest) {
-			data[i].Gone = true
-		}
+			IP:            ip,
+			Port:          port,
+			Proto:         proto,
+			FirstSeen:     firstseen.Format(dateTime),
+			LastSeen:      lastseen.Format(dateTime),
+			New:           firstseen.Equal(lastseen) && lastseen == latest,
+			Gone:          lastseen.Before(latest),
+			HasTraceroute: hasTraceroute})
 	}
 
 	return data, nil
@@ -418,8 +412,7 @@ func resultData(ip, fs, ls string) (scanData, error) {
 		}
 	}
 	for _, r := range results {
-		last, _ := time.Parse(dateTime, r.LastSeen)
-		if last.Equal(latest) {
+		if !r.Gone {
 			data.Latest++
 		}
 		if r.New {
