@@ -297,7 +297,7 @@ func loadSubmission(filter sqlFilter) (submission, error) {
 		return submission{}, err
 	}
 
-	return submission{Host: host, Job: job.Int64, Time: scanTime(subTime.Time)}, nil
+	return submission{Host: host, Job: job.Int64, Time: scanTime(subTime.Time.UTC())}, nil
 }
 
 func loadJobSubmission() (submission, error) {
