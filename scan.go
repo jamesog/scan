@@ -223,7 +223,7 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 }
 
 // Save the results posted
-func saveData(results []result) (int64, error) {
+func saveData(results []result, now time.Time) (int64, error) {
 	txn, err := db.Begin()
 	if err != nil {
 		return 0, err
@@ -245,7 +245,6 @@ func saveData(results []result) (int64, error) {
 		return 0, err
 	}
 
-	now := time.Now().UTC().Truncate(time.Minute)
 	var count int64
 
 	for _, r := range results {
@@ -314,14 +313,14 @@ func loadJobSubmission() (submission, error) {
 	return loadSubmission(f)
 }
 
-func saveSubmission(host string, job *int64) error {
+func saveSubmission(host string, job *int64, now time.Time) error {
 	txn, err := db.Begin()
 	if err != nil {
 		return err
 	}
 
 	qry := `INSERT INTO submission (host, job_id, submission_time) VALUES (?, ?, ?)`
-	_, err = txn.Exec(qry, host, toNullInt64(job), time.Now())
+	_, err = txn.Exec(qry, host, toNullInt64(job), now)
 	if err != nil {
 		txn.Rollback()
 		return err
@@ -724,7 +723,7 @@ func jobs(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, jobs)
 }
 
-func saveResults(w http.ResponseWriter, r *http.Request) (int64, error) {
+func saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, error) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return 0, errors.New("invalid Content-Type")
@@ -737,7 +736,7 @@ func saveResults(w http.ResponseWriter, r *http.Request) (int64, error) {
 		return 0, err
 	}
 
-	count, err := saveData(*res)
+	count, err := saveData(*res, now)
 	if err != nil {
 		return 0, err
 	}
@@ -757,7 +756,8 @@ func saveResults(w http.ResponseWriter, r *http.Request) (int64, error) {
 
 // Handler for POST /results
 func recvResults(w http.ResponseWriter, r *http.Request) {
-	_, err := saveResults(w, r)
+	now := time.Now().UTC()
+	_, err := saveResults(w, r, now)
 	if err != nil {
 		log.Println("recvResults: error saving results:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -767,7 +767,7 @@ func recvResults(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ip = r.RemoteAddr
 	}
-	err = saveSubmission(ip, nil)
+	err = saveSubmission(ip, nil, now)
 	if err != nil {
 		log.Println("recvResults: error saving submission:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -797,8 +797,10 @@ func recvJobResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	now := time.Now().UTC()
+
 	// Insert the results as normal
-	count, err := saveResults(w, r)
+	count, err := saveResults(w, r, now)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -817,7 +819,7 @@ func recvJobResults(w http.ResponseWriter, r *http.Request) {
 	}
 	id, _ := strconv.ParseInt(job, 10, 64)
 
-	err = saveSubmission(ip, &id)
+	err = saveSubmission(ip, &id, now)
 	if err != nil {
 		log.Println("recvJobResults: error saving submission:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

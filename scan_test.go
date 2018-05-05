@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func createDB(test string) {
@@ -70,7 +71,7 @@ func TestSaveData(t *testing.T) {
 		{IP: "192.0.2.2", Ports: []port{{Port: 80, Proto: "tcp", Status: "open"}}},
 		{IP: "192.0.2.3", Ports: []port{{Port: 80, Proto: "tcp", Status: "open"}}},
 	}
-	count, err := saveData(results)
+	count, err := saveData(results, time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)
 	}
