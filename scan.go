@@ -325,6 +325,12 @@ func saveSubmission(host string, job *int64, now time.Time) error {
 		return err
 	}
 
+	if job != nil {
+		gaugeJobSubmission.Set(float64(now.Unix()))
+	} else {
+		gaugeSubmission.Set(float64(now.Unix()))
+	}
+
 	return nil
 }
 
@@ -509,6 +515,10 @@ func (st scanTime) String() string {
 
 func (st scanTime) IsZero() bool {
 	return time.Time(st).IsZero()
+}
+
+func (st scanTime) Unix() int64 {
+	return time.Time(st).Unix()
 }
 
 type job struct {
