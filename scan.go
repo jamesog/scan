@@ -759,7 +759,7 @@ func saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, 
 
 // Handler for POST /results
 func recvResults(w http.ResponseWriter, r *http.Request) {
-	now := time.Now().UTC()
+	now := time.Now().UTC().Truncate(time.Second)
 	_, err := saveResults(w, r, now)
 	if err != nil {
 		log.Println("recvResults: error saving results:", err)
