@@ -96,7 +96,7 @@ func TestSaveJob(t *testing.T) {
 func TestResultData(t *testing.T) {
 	createDB("TestResultData")
 	defer destroyDB()
-	want := scanData{Total: 0, Latest: 0, New: 0, LastSeen: "0001-01-01 00:00", Results: nil}
+	want := scanData{Total: 0, Latest: 0, New: 0, LastSeen: time.Unix(0, 0).Unix(), Results: nil}
 	data, err := resultData("", "", "")
 	if err != nil {
 		t.Fatal(err)

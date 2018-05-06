@@ -156,8 +156,8 @@ type ipInfo struct {
 	IP            string
 	Port          int
 	Proto         string
-	FirstSeen     string
-	LastSeen      string
+	FirstSeen     scanTime
+	LastSeen      scanTime
 	New           bool
 	Gone          bool
 	HasTraceroute bool
@@ -206,8 +206,8 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 			IP:            ip,
 			Port:          port,
 			Proto:         proto,
-			FirstSeen:     firstseen.Format(dateTime),
-			LastSeen:      lastseen.Format(dateTime),
+			FirstSeen:     scanTime(firstseen),
+			LastSeen:      scanTime(lastseen),
 			New:           firstseen.Equal(lastseen) && lastseen == latest,
 			Gone:          lastseen.Before(latest),
 			HasTraceroute: hasTraceroute})
@@ -372,7 +372,7 @@ type scanData struct {
 	Total    int
 	Latest   int
 	New      int
-	LastSeen string
+	LastSeen int64
 	Results  []ipInfo
 }
 
@@ -394,9 +394,14 @@ func resultData(ip, fs, ls string) (scanData, error) {
 		filter.Values = append(filter.Values, t)
 	}
 	if ls != "" {
-		t, _ := time.Parse(dateTime, ls)
-		filter.Where = append(filter.Where, `lastseen=?`)
-		filter.Values = append(filter.Values, t)
+		i, err := strconv.ParseInt(ls, 10, 0)
+		if err != nil {
+			log.Printf("couldn't parse lastseen value %q: %v", ls, err)
+		} else {
+			t := time.Unix(i, 0).UTC()
+			filter.Where = append(filter.Where, `lastseen=?`)
+			filter.Values = append(filter.Values, t)
+		}
 	}
 
 	results, err := loadData(filter)
@@ -410,9 +415,11 @@ func resultData(ip, fs, ls string) (scanData, error) {
 	}
 
 	// Find all the latest results and store the number in the struct
-	var latest time.Time
+	// Set latest to Unix(0, 0) rather than the default zero value of the type
+	// to allow tests to receive an actual 0 value rather than a negative int
+	latest := time.Unix(0, 0)
 	for _, r := range results {
-		last, _ := time.Parse(dateTime, r.LastSeen)
+		last := time.Time(r.LastSeen)
 		if last.After(latest) {
 			latest = last
 		}
@@ -425,7 +432,7 @@ func resultData(ip, fs, ls string) (scanData, error) {
 			data.New++
 		}
 	}
-	data.LastSeen = latest.Format(dateTime)
+	data.LastSeen = latest.Unix()
 
 	return data, nil
 }
