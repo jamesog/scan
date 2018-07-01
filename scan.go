@@ -939,6 +939,10 @@ func setupRouter(middlewares ...func(http.Handler) http.Handler) *chi.Mux {
 	static := http.StripPrefix("/static", http.FileServer(http.Dir(staticDir)))
 
 	r.Get("/", index)
+	r.Route("/admin", func(r chi.Router) {
+		r.Get("/", adminHandler)
+		r.Post("/", adminHandler)
+	})
 	r.Get("/auth", authHandler)
 	r.Get("/ips.json", ips)
 	r.Route("/job", func(r chi.Router) {
