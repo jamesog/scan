@@ -1,0 +1,53 @@
+#!/usr/bin/env perl
+
+use strict;
+use File::Basename;
+
+chdir(dirname($0));
+my $nextmig = 0;
+# Loop over all current migrate files, grab the number from the filename and
+# find the next number.
+for my $f (<*.go>) {
+	$f =~ /([0-9]+)_/;
+	my $num = $1;
+	$num =~ s/^0+//;
+	$nextmig = $num + 1 if($num >= $nextmig);
+}
+print "Next migrate: $nextmig\n";
+print "Migration summary: ";
+my $summ = <STDIN>;
+chomp($summ);
+$summ =~ s/\s/_/g;
+$summ =~ tr/A-Z/a-z/;
+my $mignum = sprintf("%05d", $nextmig);
+my $mfile = sprintf("%s_%s.go", $mignum, $summ);
+print "Migrate name: $mfile\n";
+
+my $tmpl = <<EOF;
+package migrations
+
+import (
+	"database/sql"
+
+	"github.com/pressly/goose"
+)
+
+func init() {
+	goose.AddMigration(up##MIGNUM##, down##MIGNUM##)
+}
+
+func up##MIGNUM##(tx *sql.Tx) error {
+	_, err := tx.Exec(`CREATE TABLE IF NOT EXISTS foo ()`)
+	return err
+}
+
+func down##MIGNUM##(tx *sql.Tx) error {
+	return nil
+}
+EOF
+
+$tmpl =~ s/##MIGNUM##/$mignum/g;
+
+open(my $fh, '>', $mfile) or die "Can't open $mfile: $!";
+print $fh $tmpl;
+close($fh);
