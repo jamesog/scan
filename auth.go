@@ -114,6 +114,12 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	v := session.Values["user"]
+	if user, ok := v.(User); ok {
+		audit(user.Email, "logout", "")
+	}
+
 	session.Options.MaxAge = -1
 	session.Save(r, w)
 
@@ -301,6 +307,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.user.Save(r, w)
+	audit(user.Email, "login", "")
 
 	// User is logged in. Redirect back to the index page
 	http.Redirect(w, r, uri, http.StatusFound)
