@@ -15,6 +15,13 @@ import (
 	"time"
 )
 
+func init() {
+	// We can't go through the OAuth2 login flow in tests
+	authDisabled = true
+
+	setupTemplates()
+}
+
 func createDB(test string) {
 	var err error
 	err = openDB(fmt.Sprintf("file:%s?mode=memory&cache=shared", test))
@@ -124,11 +131,6 @@ func TestUpdateJob(t *testing.T) {
 func TestIndexHandlerWithoutAuth(t *testing.T) {
 	createDB("TestIndexHandlerWithoutAuth")
 	defer destroyDB()
-
-	// We can't go through the OAuth2 login flow in tests
-	authDisabled = true
-
-	setupTemplates()
 
 	r := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
