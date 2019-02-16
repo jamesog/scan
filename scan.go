@@ -804,7 +804,7 @@ func main() {
 		if *tlsHostname != "" {
 			m.HostPolicy = autocert.HostWhitelist(*tlsHostname)
 		}
-		middlewares = append(middlewares, redirectHTTPS)
+		middlewares = append(middlewares, m.HTTPHandler, redirectHTTPS)
 	}
 
 	r := setupRouter(middlewares...)
