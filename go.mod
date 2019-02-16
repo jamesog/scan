@@ -16,7 +16,7 @@ require (
 	github.com/prometheus/client_model v0.0.0-20170216185247-6f3806018612 // indirect
 	github.com/prometheus/common v0.0.0-20170621121001-0866df4b85a1 // indirect
 	github.com/prometheus/procfs v0.0.0-20170620063421-822d4a1f8edc // indirect
-	golang.org/x/crypto v0.0.0-20170619204222-adbae1b6b6fb
+	golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67
 	golang.org/x/net v0.0.0-20170624000434-5f8847ae0d0e // indirect
 	golang.org/x/oauth2 v0.0.0-20170517174439-f047394b6d14
 	google.golang.org/appengine v1.0.0 // indirect

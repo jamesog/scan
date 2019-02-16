@@ -30,6 +30,8 @@ github.com/prometheus/procfs v0.0.0-20170620063421-822d4a1f8edc h1:3tgKmjcsu2Gsk
 github.com/prometheus/procfs v0.0.0-20170620063421-822d4a1f8edc/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 golang.org/x/crypto v0.0.0-20170619204222-adbae1b6b6fb h1:6QZjMZJzos5C5rW30xO+0C8f9gKkgeb1z/K4gyS8DFA=
 golang.org/x/crypto v0.0.0-20170619204222-adbae1b6b6fb/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67 h1:ng3VDlRp5/DHpSWl02R4rM9I+8M2rhmsuLwAMmkLQWE=
+golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/net v0.0.0-20170624000434-5f8847ae0d0e h1:QgA/R9W9DdyznLiIOAoxKKvtcI4w7iGwJfQp6PoODgk=
 golang.org/x/net v0.0.0-20170624000434-5f8847ae0d0e/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
 golang.org/x/oauth2 v0.0.0-20170517174439-f047394b6d14 h1:5fvqvN1Glau4dT9f9CReJ/5DQdgl50EfDOzX7jBecZg=
