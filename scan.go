@@ -541,16 +541,6 @@ func saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, 
 		return 0, err
 	}
 
-	// Update metrics with latest data
-	results, err := resultData("", "", "")
-	if err != nil {
-		log.Printf("saveResults: error fetching results for metrics update: %v\n", err)
-	} else {
-		gaugeTotal.Set(float64(results.Total))
-		gaugeLatest.Set(float64(results.Latest))
-		gaugeNew.Set(float64(results.New))
-	}
-
 	return count, nil
 }
 
@@ -572,6 +562,16 @@ func recvResults(w http.ResponseWriter, r *http.Request) {
 		log.Println("recvResults: error saving submission:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Update metrics with latest data
+	results, err := resultData("", "", "")
+	if err != nil {
+		log.Printf("saveResults: error fetching results for metrics update: %v\n", err)
+	} else {
+		gaugeTotal.Set(float64(results.Total))
+		gaugeLatest.Set(float64(results.Latest))
+		gaugeNew.Set(float64(results.New))
 	}
 }
 
