@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - "1.11"
+  - "1.12"
   - master
 
 env:
@@ -14,7 +14,7 @@ matrix:
 before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq libsqlite3-0
-    # FIXME(jamesog) Remove the first line after Go 1.11. This is a hack around modules oddities.
+  # FIXME(jamesog) Remove the first line after Go 1.11. This is a hack around modules oddities.
   - go get github.com/go-bindata/go-bindata
   - go get github.com/go-bindata/go-bindata/...
   - go get github.com/golang/lint/golint
@@ -46,4 +46,4 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
-    go: "1.11"
+    go: "1.12"
