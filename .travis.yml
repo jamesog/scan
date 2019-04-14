@@ -28,8 +28,8 @@ script:
   - VERSION=${VERSION#v*}
   - export DIST_FILE=scan-${VERSION}-$(go env GOOS)-$(go env GOARCH)
   - export SHA256_FILE=${DIST_FILE}.sha256
-  - go generate -x
   - golint -set_exit_status
+  - go generate -x
   - go vet
   - go test -v
   - go build -v -o $DIST_FILE
