@@ -14,9 +14,9 @@
 							</tr>
 						</thead>
 						<tbody>
-							{{- $ActiveOnly := .ActiveOnly }}
+							{{- $AllResults := .AllResults }}
 							{{- range .Results }}
-								{{- if not (and $ActiveOnly .Gone) }}
+								{{- if and $AllResults .Gone }}
 							<tr>
 								<td>
 									{{- if .New }}<span class="label label-danger">New</span>{{ end -}}
