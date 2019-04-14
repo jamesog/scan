@@ -5,9 +5,15 @@ Scan is a small web service for recording and displaying [Masscan](https://githu
 ![New data](/new_data.png)
 ![Updated data](/updated_data.png)
 
-## Installation
+## Building and Installation
 
-Install SQLite3. For a Debian system:
+As of v0.8.1 Scan uses Go modules and requires Go 1.11 or newer to build.
+
+Precompiled binaries for Linux on x86-64 are available on the GitHub releases page.
+
+Both build and runtime require the SQLite libraries installed.
+
+For a Debian system:
 
 ```
 sudo apt-get install sqlite3
@@ -19,26 +25,19 @@ Or macOS:
 brew install sqlite
 ```
 
-Install [`dep`](https://github.com/golang/dep#installation) and run `dep ensure`
-to fetch all project dependencies.
-
-```
-dep ensure
-go install
-```
-
 ## Database
 
-Scan stores results in a SQLite database. To initialise it, run:
+Scan stores results in a SQLite database. The database is automatically created and maintained at startup.
 
-```
-sqlite3 scan.db
-CREATE TABLE scan (ip text, port integer, proto text, firstseen datetime, lastseen datetime);
-CREATE TABLE users (email text UNIQUE NOT NULL);
-CREATE TABLE groups (group_name text UNIQUE NOT NULL);
-CREATE TABLE job (id int, cidr text NOT NULL, ports text, proto text, requested_by text, submitted datetime, received datetime, count int);
-CREATE TABLE traceroute (dest text UNIQUE NOT NULL, path text);
-```
+The `-data.dir` flag (defaults to current directory) tells Scan where to store the database file.
+
+## TLS
+
+Scan can automatically obtain a TLS certificate for HTTPS using Let's Encrypt.
+
+When the `-tls` flag is set and a client connects to the HTTPS port, Scan will attempt to automatically obtain a certificate for the hostname being connected to. A DNS hostname must be set up for this to work as Let's Encrypt uses Domain Validation - it needs to connect to the hostname on the HTTP port.
+
+Optionally, you can restrict certificates to a single hostname using the `-tls.hostname` flag.
 
 ## Authentication & Authorization
 
@@ -53,13 +52,9 @@ Authentication is with Google OAuth2. You should create credentials for the appl
   (e.g. https://scan.example.com/auth)
 * Download the JSON file containing the credentials
 
-The JSON file should be called `client_secret.json` in the same direction as the `scan` binary.
+Scan will look for the credentials file called `client_secret.json` in the data directory (`-data.dir` flag) by default. The data directory defaults to the current directory. The credentials file path can be changed with the `-credentials` flag. If a relative path is specified it's assumed the file is in the data directory.
 
-Add the email address of each user to be permitted access to the `users` table in the database.
-
-```
-INSERT INTO users (email) VALUES ('alice@example.com');
-```
+Users can be managed at the `/admin` URI.
 
 If you want to authorise users by a G Suite group you must enable the
 [Admin SDK](https://console.cloud.google.com/apis/api/admin.googleapis.com/overview) on the project
@@ -148,3 +143,11 @@ form data, e.g.
 ```
 curl -F dest=192.0.2.1 -F traceroute=@traceroute.txt https://scan.example.com/traceroute
 ```
+
+## Metrics
+
+Prometheus metrics are available to allow you to monitor and alert on Scan results. By default it listens on `localhost:3000`.
+
+Listening on a separate port from the main web server is deliberate - if you have authentication enabled the metrics data could leak information. If you configure metrics to listen on a public interface you should use IP ACLs to control access.
+
+TLS can be enabled on the metrics server (`-metrics.tls`) if TLS is also enabled for the main server.
