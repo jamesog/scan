@@ -781,7 +781,9 @@ func main() {
 		credsFile = filepath.Join(dataDir, credsFile)
 	}
 
-	oauthConfig()
+	if !authDisabled {
+		oauthConfig()
+	}
 
 	if err := openDB(filepath.Join(dataDir, dbFile)); err != nil {
 		log.Fatalf("failed to open database: %v", err)
