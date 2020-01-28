@@ -384,9 +384,14 @@ func resultData(ip, fs, ls string) (scanData, error) {
 		filter.Values = append(filter.Values, fmt.Sprintf("%%%s%%", ip))
 	}
 	if fs != "" {
-		t, _ := time.Parse(dateTime, fs)
-		filter.Where = append(filter.Where, `firstseen=?`)
-		filter.Values = append(filter.Values, t)
+		i, err := strconv.ParseInt(fs, 10, 0)
+		if err != nil {
+			log.Printf("couldn't parse firstseen value %q: %v", ls, err)
+		} else {
+			t := time.Unix(i, 0).UTC()
+			filter.Where = append(filter.Where, `firstseen=?`)
+			filter.Values = append(filter.Values, t)
+		}
 	}
 	if ls != "" {
 		i, err := strconv.ParseInt(ls, 10, 0)

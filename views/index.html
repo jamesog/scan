@@ -14,27 +14,24 @@
 							</tr>
 						</thead>
 						<tbody>
-							{{- $AllResults := .AllResults }}
 							{{- range .Results }}
-								{{- if and $AllResults .Gone }}
-							<tr>
-								<td>
-									{{- if .New }}<span class="label label-danger">New</span>{{ end -}}
-									{{- if .Gone }}<span class="label label-success">Gone</span>{{ end -}}
-									{{- if .HasTraceroute }}<a title="Traceroute for {{ .IP }}" href="/traceroute/{{ .IP }}"><span class="label label-primary"><span class="glyphicon glyphicon-road" aria-hidden="true"></span></span></a>{{ end -}}
-								</td>
-								<td>{{ .IP }}</td>
-								<td>{{ .Port }}</td>
-								<td>{{ .Proto }}</td>
-								<td>{{ .FirstSeen }}</td>
-								<td>{{ .LastSeen }}</td>
-							</tr>
-								{{- end }}
-							{{- else }}
-							<div class="panel panel-warning center-block" style="width: 25%">
-								<div class="panel-heading"><h3 class="panel-title">No results</h3></div>
-								<div class="panel-body">No results found</div>
-							</div>
+									<tr>
+										<td>
+											{{- if .New }}<span class="label label-danger">New</span>{{ end -}}
+											{{- if .Gone }}<span class="label label-success">Gone</span>{{ end -}}
+											{{- if .HasTraceroute }}<a title="Traceroute for {{ .IP }}" href="/traceroute/{{ .IP }}"><span class="label label-primary"><span class="glyphicon glyphicon-road" aria-hidden="true"></span></span></a>{{ end -}}
+										</td>
+										<td>{{ .IP }}</td>
+										<td>{{ .Port }}</td>
+										<td>{{ .Proto }}</td>
+										<td>{{ .FirstSeen }}</td>
+										<td>{{ .LastSeen }}</td>
+									</tr>
+						  {{- else }}
+								<div class="panel panel-warning center-block" style="width: 25%">
+									<div class="panel-heading"><h3 class="panel-title">No results</h3></div>
+									<div class="panel-body">No results found</div>
+								</div>
 							{{- end }}
 						</tbody>
 					</table>
