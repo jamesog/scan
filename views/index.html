@@ -14,8 +14,10 @@
 							</tr>
 						</thead>
 						<tbody>
+							{{- $ActiveOnly := .ActiveOnly }}
 							{{- range .Results }}
 									<tr>
+										{{- if not (and $ActiveOnly .Gone) }}
 										<td>
 											{{- if .New }}<span class="label label-danger">New</span>{{ end -}}
 											{{- if .Gone }}<span class="label label-success">Gone</span>{{ end -}}
@@ -26,6 +28,7 @@
 										<td>{{ .Proto }}</td>
 										<td>{{ .FirstSeen }}</td>
 										<td>{{ .LastSeen }}</td>
+										{{- end }}
 									</tr>
 						  {{- else }}
 								<div class="panel panel-warning center-block" style="width: 25%">
