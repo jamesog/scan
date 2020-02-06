@@ -358,7 +358,7 @@ type indexData struct {
 	Authenticated bool
 	User          User
 	URI           string
-	ActiveOnly    bool
+	AllResults    bool
 	Submission    submission
 	scanData
 }
@@ -469,7 +469,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	ip := q.Get("ip")
 	firstSeen := q.Get("firstseen")
 	lastSeen := q.Get("lastseen")
-	_, activeOnly := q["active"]
+	_, allResults := q["all"]
 
 	results, err := resultData(ip, firstSeen, lastSeen)
 	if err != nil {
@@ -487,7 +487,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		Authenticated: true,
 		User:          user,
 		URI:           r.URL.Path,
-		ActiveOnly:    activeOnly,
+		AllResults:    allResults,
 		Submission:    sub,
 		scanData:      results,
 	}
