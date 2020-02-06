@@ -298,7 +298,6 @@ func loadSubmission(filter sqlFilter) (submission, error) {
 		log.Println("loadSubmission: error scanning table:", err)
 		return submission{}, err
 	}
-
 	return submission{Host: host, Job: job.Int64, Time: scanTime(subTime.Time.UTC())}, nil
 }
 
@@ -577,6 +576,7 @@ func recvResults(w http.ResponseWriter, r *http.Request) {
 		gaugeTotal.Set(float64(results.Total))
 		gaugeLatest.Set(float64(results.Latest))
 		gaugeNew.Set(float64(results.New))
+		gaugeSubmission.Set(float64(time.Now().Unix()))
 	}
 }
 
