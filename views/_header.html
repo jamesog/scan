@@ -62,7 +62,7 @@
 						</div>
 					</form>
 					<a class="btn btn-primary navbar-btn" href="/job">New scan</a>
-					<a class="btn btn-{{ if not .ActiveOnly}}success{{ else }}default{{ end }} navbar-btn" href="/{{ if not .ActiveOnly }}?active{{ end }}">Active only</a>
+					<a class="btn btn-{{ if not .AllResults}}success{{ else }}default{{ end }} navbar-btn" href="/{{ if not .AllResults }}?all{{ end }}">All Results</a>
 						{{ end }}
 						{{- if ne .User.Email "" }}
 					<ul class="nav navbar-nav navbar-right">
