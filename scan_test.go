@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/jamesog/scan/pkg/scan"
 )
 
 func init() {
@@ -59,10 +61,10 @@ func TestLoadTraceroutesWithNoResults(t *testing.T) {
 func TestSaveData(t *testing.T) {
 	createDB("TestSaveData")
 	defer destroyDB()
-	results := []result{
-		{IP: "192.0.2.1", Ports: []port{{Port: 80, Proto: "tcp", Status: "open"}}},
-		{IP: "192.0.2.2", Ports: []port{{Port: 80, Proto: "tcp", Status: "open"}}},
-		{IP: "192.0.2.3", Ports: []port{{Port: 80, Proto: "tcp", Status: "open"}}},
+	results := []scan.Result{
+		{IP: "192.0.2.1", Ports: []scan.Port{{Port: 80, Proto: "tcp", Status: "open"}}},
+		{IP: "192.0.2.2", Ports: []scan.Port{{Port: 80, Proto: "tcp", Status: "open"}}},
+		{IP: "192.0.2.3", Ports: []scan.Port{{Port: 80, Proto: "tcp", Status: "open"}}},
 	}
 	count, err := saveData(results, time.Now().UTC())
 	if err != nil {

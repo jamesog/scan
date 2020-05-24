@@ -33,6 +33,7 @@ import (
 	"github.com/pressly/goose"
 
 	_ "github.com/jamesog/scan/migrations"
+	"github.com/jamesog/scan/pkg/scan"
 )
 
 // Human-readable date-time format
@@ -137,45 +138,17 @@ func (f sqlFilter) String() string {
 	return ""
 }
 
-type port struct {
-	Port    int    `json:"port"`
-	Proto   string `json:"proto"`
-	Status  string `json:"status"`
-	Service struct {
-		Name   string `json:"name"`
-		Banner string `json:"banner"`
-	} `json:"service"`
-}
-
-// Results posted from masscan
-type result struct {
-	IP    string `json:"ip"`
-	Ports []port `json:"ports"`
-}
-
-// Data retrieved from the database for display
-type ipInfo struct {
-	IP            string
-	Port          int
-	Proto         string
-	FirstSeen     scanTime
-	LastSeen      scanTime
-	New           bool
-	Gone          bool
-	HasTraceroute bool
-}
-
 // Load all data for displaying in the browser
-func loadData(filter sqlFilter) ([]ipInfo, error) {
+func loadData(filter sqlFilter) ([]scan.IPInfo, error) {
 	qry := fmt.Sprintf(`SELECT ip, port, proto, firstseen, lastseen FROM scan %s ORDER BY port, proto, ip, lastseen`, filter)
 	rows, err := db.Query(qry, filter.Values...)
 	if err != nil {
-		return []ipInfo{}, err
+		return []scan.IPInfo{}, err
 	}
 
 	defer rows.Close()
 
-	var data []ipInfo
+	var data []scan.IPInfo
 	var ip, proto string
 	var firstseen, lastseen time.Time
 	var port int
@@ -183,7 +156,7 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 
 	traceroutes, err := loadTraceroutes()
 	if err != nil {
-		return []ipInfo{}, err
+		return []scan.IPInfo{}, err
 	}
 
 	submission, err := loadSubmission(sqlFilter{Where: []string{"job_id IS NULL"}})
@@ -195,7 +168,7 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
 		if err != nil {
 			log.Println("loadData: error scanning table:", err)
-			return []ipInfo{}, err
+			return []scan.IPInfo{}, err
 		}
 		if lastseen.After(latest) {
 			latest = lastseen
@@ -204,12 +177,12 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 		if _, ok := traceroutes[ip]; ok {
 			hasTraceroute = true
 		}
-		data = append(data, ipInfo{
+		data = append(data, scan.IPInfo{
 			IP:            ip,
 			Port:          port,
 			Proto:         proto,
-			FirstSeen:     scanTime(firstseen),
-			LastSeen:      scanTime(lastseen),
+			FirstSeen:     scan.Time{Time: firstseen},
+			LastSeen:      scan.Time{Time: lastseen},
 			New:           firstseen.Equal(lastseen) && lastseen == latest,
 			Gone:          lastseen.Before(latest),
 			HasTraceroute: hasTraceroute})
@@ -219,7 +192,7 @@ func loadData(filter sqlFilter) ([]ipInfo, error) {
 }
 
 // Save the results posted
-func saveData(results []result, now time.Time) (int64, error) {
+func saveData(results []scan.Result, now time.Time) (int64, error) {
 	txn, err := db.Begin()
 	if err != nil {
 		return 0, err
@@ -368,7 +341,7 @@ type scanData struct {
 	Latest   int
 	New      int
 	LastSeen int64
-	Results  []ipInfo
+	Results  []scan.IPInfo
 }
 
 type submission struct {
@@ -419,7 +392,7 @@ func resultData(ip, fs, ls string) (scanData, error) {
 	// to allow tests to receive an actual 0 value rather than a negative int
 	latest := time.Unix(0, 0)
 	for _, r := range results {
-		last := time.Time(r.LastSeen)
+		last := r.LastSeen.Time
 		if last.After(latest) {
 			latest = last
 		}
@@ -534,7 +507,7 @@ func saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, 
 		return 0, errors.New("invalid Content-Type")
 	}
 
-	res := new([]result)
+	res := new([]scan.Result)
 
 	err := json.NewDecoder(r.Body).Decode(&res)
 	if err != nil {
