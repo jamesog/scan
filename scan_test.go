@@ -46,7 +46,7 @@ func TestLoadDataWithNoResults(t *testing.T) {
 func TestLoadTraceroutesWithNoResults(t *testing.T) {
 	db := createDB("TestLoadTraceroutesWithNoResults")
 	defer db.Close()
-	tr, err := db.LoadTraceroutes()
+	tr, err := db.LoadTracerouteIPs()
 	if err != nil {
 		t.Fatal(err)
 	}

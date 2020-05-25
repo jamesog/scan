@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/base64"
 	"encoding/gob"
 	"encoding/json"
@@ -168,41 +167,21 @@ func (s AuthSession) userInfo() (*User, error) {
 // validateUser looks up the user's email address in the database and returns
 // true if they exist
 func (app *App) validateUser(user *User) (bool, error) {
-
-	// x is a dummy variable to scan in to - we don't actually care about the
-	// result, just that a row was returned
-	var x string
-	err := app.db.QueryRow(`SELECT email FROM users WHERE email=?`, user.Email).Scan(&x)
-	switch {
-	case err != nil && err != sql.ErrNoRows:
-		return false, err
-	case err == nil:
-		return true, nil
-	}
-
-	return false, nil
+	return app.db.UserExists(user.Email)
 }
 
 // validateGroupMember looks up all group names in the database and returns
 // true if the user is a member of any of the groups
 func (app *App) validateGroupMember(s AuthSession, email string) (bool, error) {
-	var group string
-
 	url := "https://www.googleapis.com/admin/directory/v1/groups/%s/hasMember/%s"
 
-	rows, err := app.db.Query(`SELECT group_name FROM groups`)
+	groups, err := app.db.LoadGroups()
 	if err != nil {
 		log.Printf("error retrieving groups from database: %v", err)
 		return false, err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		err := rows.Scan(&group)
-		if err != nil {
-			continue
-		}
-
+	for _, group := range groups {
 		res, err := s.client.Get(fmt.Sprintf(url, group, email))
 		if err != nil {
 			log.Printf("error retrieving user %s for group %s: %v", email, group, err)

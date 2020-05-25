@@ -200,21 +200,7 @@ func (app *App) recvTraceroute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// FIXME(jamesog): This needs to be moved out to its own function
-	txn, err := app.db.Begin()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = txn.Exec(`INSERT OR REPLACE INTO traceroute (dest, path) VALUES (?, ?)`, dest, trace)
-	if err != nil {
-		txn.Rollback()
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	err = txn.Commit()
+	err = app.db.SaveTraceroute(dest, string(trace))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -228,11 +214,9 @@ func (app *App) recvTraceroute(w http.ResponseWriter, r *http.Request) {
 func (app *App) traceroute(w http.ResponseWriter, r *http.Request) {
 	ip := chi.URLParam(r, "ip")
 
-	// FIXME(jamesog): This needs to be moved out to its own function
-	var path string
-	err := app.db.QueryRow(`SELECT path FROM traceroute WHERE dest = ?`, ip).Scan(&path)
+	path, err := app.db.LoadTraceroute(ip)
 	switch {
-	case err == sql.ErrNoRows:
+	case errors.Is(err, sql.ErrNoRows):
 		http.Error(w, "Traceroute not found", http.StatusNotFound)
 		return
 	case err != nil:
