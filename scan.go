@@ -46,6 +46,27 @@ var (
 	tmpl *template.Template
 )
 
+type storage interface {
+	LoadData(filter sqlite.SQLFilter) ([]scan.IPInfo, error)
+	ResultData(ip, fs, ls string) (scan.Data, error)
+	SaveData(results []scan.Result, now time.Time) (int64, error)
+	LoadSubmission(filter sqlite.SQLFilter) (scan.Submission, error)
+	SaveSubmission(host string, job *int64, now time.Time) error
+	LoadTracerouteIPs() (map[string]struct{}, error)
+	LoadTraceroute(dest string) (string, error)
+	SaveTraceroute(dest, trace string) error
+	LoadJobs(filter sqlite.SQLFilter) ([]scan.Job, error)
+	LoadJobSubmission() (scan.Submission, error)
+	SaveJob(cidr, ports, proto, user string) (int64, error)
+	UpdateJob(id string, count int64) error
+	LoadUsers() ([]string, error)
+	LoadGroups() ([]string, error)
+	UserExists(email string) (bool, error)
+	SaveUser(email string) error
+	DeleteUser(email string) error
+	SaveAudit(ts time.Time, user, event, info string) error
+}
+
 type indexData struct {
 	NotAuth       string
 	Errors        []string
@@ -58,7 +79,7 @@ type indexData struct {
 }
 
 type App struct {
-	db *sqlite.DB
+	db storage
 }
 
 // Handler for GET /
