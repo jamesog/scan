@@ -1,5 +1,14 @@
-scan
+# Ignore the binary
+/scan
+# Ignore the database
 scan.db
+
+# Don't ignore any Go source files
+!*.go
+
+# Vim swapfiles
 .*.swp
+
+# Secrets
 .cookie_key
 client_secret.json
