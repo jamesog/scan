@@ -1,5 +1,7 @@
 module github.com/jamesog/scan
 
+go 1.14
+
 require (
 	cloud.google.com/go v0.9.0 // indirect
 	github.com/go-chi/chi v3.3.2+incompatible

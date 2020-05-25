@@ -85,7 +85,7 @@ func randToken() string {
 }
 
 // loginHandler is just a redirect to the Google login page
-func loginHandler(w http.ResponseWriter, r *http.Request) {
+func (app *App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	tok := randToken()
 	state, err := store.Get(r, "state")
 	if err != nil {
@@ -108,7 +108,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, getLoginURL(tok), http.StatusFound)
 }
 
-func logoutHandler(w http.ResponseWriter, r *http.Request) {
+func (app *App) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	session, err := store.Get(r, "user")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -117,7 +117,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	v := session.Values["user"]
 	if user, ok := v.(User); ok {
-		audit(user.Email, "logout", "")
+		app.audit(user.Email, "logout", "")
 	}
 
 	session.Options.MaxAge = -1
@@ -166,12 +166,12 @@ func (s AuthSession) userInfo() (*User, error) {
 
 // validateUser looks up the user's email address in the database and returns
 // true if they exist
-func (s AuthSession) validateUser(user *User) (bool, error) {
+func (app *App) validateUser(user *User) (bool, error) {
 
 	// x is a dummy variable to scan in to - we don't actually care about the
 	// result, just that a row was returned
 	var x string
-	err := db.QueryRow(`SELECT email FROM users WHERE email=?`, user.Email).Scan(&x)
+	err := app.db.QueryRow(`SELECT email FROM users WHERE email=?`, user.Email).Scan(&x)
 	switch {
 	case err != nil && err != sql.ErrNoRows:
 		return false, err
@@ -184,12 +184,12 @@ func (s AuthSession) validateUser(user *User) (bool, error) {
 
 // validateGroupMember looks up all group names in the database and returns
 // true if the user is a member of any of the groups
-func (s AuthSession) validateGroupMember(email string) (bool, error) {
+func (app *App) validateGroupMember(s AuthSession, email string) (bool, error) {
 	var group string
 
 	url := "https://www.googleapis.com/admin/directory/v1/groups/%s/hasMember/%s"
 
-	rows, err := db.Query(`SELECT group_name FROM groups`)
+	rows, err := app.db.Query(`SELECT group_name FROM groups`)
 	if err != nil {
 		log.Printf("error retrieving groups from database: %v", err)
 		return false, err
@@ -238,7 +238,7 @@ func (s AuthSession) validateGroupMember(email string) (bool, error) {
 
 // authHandler receives the login information from Google and checks if the
 // email address is authorized
-func authHandler(w http.ResponseWriter, r *http.Request) {
+func (app *App) authHandler(w http.ResponseWriter, r *http.Request) {
 	var s AuthSession
 	var err error
 	s.state, err = store.Get(r, "state")
@@ -284,7 +284,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	// If the individual user is not authorised, check group membership
 
 	user, err := s.userInfo()
-	authorised, err = s.validateUser(user)
+	authorised, err = app.validateUser(user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -292,7 +292,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 
 	// The user doesn't have an individual entry, check group membership
 	if !authorised {
-		authorised, err = s.validateGroupMember(user.Email)
+		authorised, err = app.validateGroupMember(s, user.Email)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -307,7 +307,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.user.Save(r, w)
-	audit(user.Email, "login", "")
+	app.audit(user.Email, "login", "")
 
 	// User is logged in. Redirect back to the index page
 	http.Redirect(w, r, uri, http.StatusFound)

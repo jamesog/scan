@@ -8,12 +8,14 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/jamesog/scan/internal/sqlite"
 )
 
 func TestLoadJobsWithNoResults(t *testing.T) {
-	createDB("TestLoadJobsWithNoResults")
-	defer destroyDB()
-	data, err := loadJobs(sqlFilter{})
+	db := createDB("TestLoadJobsWithNoResults")
+	defer db.Close()
+	data, err := db.LoadJobs(sqlite.SQLFilter{})
 	if err != nil {
 		t.Fatalf("error from loadJobs: %v", err)
 	}
@@ -23,9 +25,9 @@ func TestLoadJobsWithNoResults(t *testing.T) {
 }
 
 func TestSaveJob(t *testing.T) {
-	createDB("TestSaveJob")
-	defer destroyDB()
-	id, err := saveJob("192.0.2.0/24", "80,443", "tcp", "sysadmin@example.com")
+	db := createDB("TestSaveJob")
+	defer db.Close()
+	id, err := db.SaveJob("192.0.2.0/24", "80,443", "tcp", "sysadmin@example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,25 +37,26 @@ func TestSaveJob(t *testing.T) {
 }
 
 func TestUpdateJob(t *testing.T) {
-	createDB("TestUpdateJob")
-	defer destroyDB()
-	id, err := saveJob("192.0.2.0/24", "80,443", "tcp", "sysadmin@example.com")
+	db := createDB("TestUpdateJob")
+	defer db.Close()
+	id, err := db.SaveJob("192.0.2.0/24", "80,443", "tcp", "sysadmin@example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = updateJob(string(id), 999)
+	err = db.UpdateJob(string(id), 999)
 	if err != nil {
 		t.Errorf("error updating job: %v", err)
 	}
 }
 
 func TestJobHandler(t *testing.T) {
-	createDB("TestJobHandler")
-	defer destroyDB()
+	db := createDB("TestJobHandler")
+	defer db.Close()
+	app := App{db: db}
 
 	r := httptest.NewRequest("GET", "/job", nil)
 	w := httptest.NewRecorder()
-	newJob(w, r)
+	app.newJob(w, r)
 
 	resp := w.Result()
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -68,7 +71,7 @@ func TestJobHandler(t *testing.T) {
 
 	r = httptest.NewRequest("POST", "/job", strings.NewReader(v.Encode()))
 	w = httptest.NewRecorder()
-	newJob(w, r)
+	app.newJob(w, r)
 
 	resp = w.Result()
 	body, _ = ioutil.ReadAll(resp.Body)
@@ -78,12 +81,13 @@ func TestJobHandler(t *testing.T) {
 }
 
 func TestJobsHandler(t *testing.T) {
-	createDB("TestJobsHandler")
-	defer destroyDB()
+	db := createDB("TestJobsHandler")
+	defer db.Close()
+	app := App{db: db}
 
 	r := httptest.NewRequest("GET", "/jobs", nil)
 	w := httptest.NewRecorder()
-	jobs(w, r)
+	app.jobs(w, r)
 
 	resp := w.Result()
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -97,17 +101,18 @@ func TestJobsHandler(t *testing.T) {
 }
 
 func TestJobResultsHandler(t *testing.T) {
-	createDB("TestJobResultsHandler")
-	defer destroyDB()
+	db := createDB("TestJobResultsHandler")
+	defer db.Close()
+	app := App{db: db}
 
 	data := bytes.NewBuffer([]byte(`[{"ip":"192.0.2.1","ports":[{"port":80,"proto":"tcp","status":"open","reason":"syn-ack","ttl":57}]}]`))
 
-	mux := setupRouter()
+	mux := app.setupRouter()
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
 	// We need to save some job data before trying to submit any
-	saveJob("192.0.2.1", "80", "tcp", "testuser@example.com")
+	app.db.SaveJob("192.0.2.1", "80", "tcp", "testuser@example.com")
 
 	req, err := http.NewRequest("PUT", ts.URL+"/results/1", data)
 	if err != nil {

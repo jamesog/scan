@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,7 +17,7 @@ func (u *userData) AddError(err string) {
 }
 
 // Handler for GET and POST /admin
-func adminHandler(w http.ResponseWriter, r *http.Request) {
+func (app *App) adminHandler(w http.ResponseWriter, r *http.Request) {
 	if authDisabled {
 		http.Error(w, "Admin interface not available when authentication is disabled.", http.StatusNotImplemented)
 		return
@@ -48,7 +47,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		user = v.(User)
 	}
 
-	users, err := loadUsers()
+	users, err := app.db.LoadUsers()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -68,7 +67,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		f := r.Form
-		err = adminFormProcess(f, user, users)
+		err = app.adminFormProcess(f, user, users)
 		switch {
 		case err == errUserExists:
 			data.AddError(userExists)
@@ -81,7 +80,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		case err == nil:
 			// Reload the list of users
-			users, err = loadUsers()
+			users, err = app.db.LoadUsers()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -99,7 +98,7 @@ var (
 	errSelfDeletion = errors.New(strings.ToLower(selfDeletion))
 )
 
-func adminFormProcess(f url.Values, user User, users []string) error {
+func (app *App) adminFormProcess(f url.Values, user User, users []string) error {
 	if add := f.Get("add_email"); add != "" {
 		// Check if the address already exists as a user
 		for _, u := range users {
@@ -107,10 +106,10 @@ func adminFormProcess(f url.Values, user User, users []string) error {
 				return errUserExists
 			}
 		}
-		if err := saveUser(add); err != nil {
+		if err := app.db.SaveUser(add); err != nil {
 			return err
 		}
-		audit(user.Email, "add_user", add)
+		app.audit(user.Email, "add_user", add)
 	}
 
 	if delete := f.Get("delete_email"); delete != "" {
@@ -118,75 +117,10 @@ func adminFormProcess(f url.Values, user User, users []string) error {
 		if user.Email == delete {
 			return errSelfDeletion
 		}
-		if err := deleteUser(delete); err != nil {
+		if err := app.db.DeleteUser(delete); err != nil {
 			return err
 		}
-		audit(user.Email, "delete_user", delete)
-	}
-
-	return nil
-}
-
-func loadUsers() ([]string, error) {
-	rows, err := db.Query(`SELECT * FROM users ORDER BY email`)
-	if err != nil {
-		log.Printf("error loading users: %v\n", err)
-		return []string{}, err
-	}
-	defer rows.Close()
-
-	var users []string
-	var email string
-
-	for rows.Next() {
-		err := rows.Scan(&email)
-		if err != nil {
-			log.Println("loadUsers: error scanning table:", err)
-			return []string{}, err
-		}
-		users = append(users, email)
-	}
-
-	return users, nil
-}
-
-func saveUser(email string) error {
-	txn, err := db.Begin()
-	if err != nil {
-		return err
-	}
-
-	qry := `INSERT INTO users (email) VALUES (?)`
-	_, err = txn.Exec(qry, email)
-	if err != nil {
-		txn.Rollback()
-		return err
-	}
-
-	err = txn.Commit()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func deleteUser(email string) error {
-	txn, err := db.Begin()
-	if err != nil {
-		return err
-	}
-
-	qry := `DELETE FROM users WHERE email = ?`
-	_, err = txn.Exec(qry, email)
-	if err != nil {
-		txn.Rollback()
-		return err
-	}
-
-	err = txn.Commit()
-	if err != nil {
-		return err
+		app.audit(user.Email, "delete_user", delete)
 	}
 
 	return nil
