@@ -27,10 +27,8 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
-	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/jamesog/scan/internal/sqlite"
-	_ "github.com/jamesog/scan/migrations"
 	"github.com/jamesog/scan/pkg/scan"
 )
 

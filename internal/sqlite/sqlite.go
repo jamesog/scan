@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/jamesog/scan/internal/migrations"
 	"github.com/jamesog/scan/pkg/scan"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose"
