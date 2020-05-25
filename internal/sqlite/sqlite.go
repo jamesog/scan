@@ -101,7 +101,7 @@ func (db *DB) LoadData(filter SQLFilter) ([]scan.IPInfo, error) {
 	var port int
 	var latest time.Time
 
-	traceroutes, err := db.LoadTraceroutes()
+	tracerouteIPs, err := db.LoadTracerouteIPs()
 	if err != nil {
 		return []scan.IPInfo{}, err
 	}
@@ -121,7 +121,7 @@ func (db *DB) LoadData(filter SQLFilter) ([]scan.IPInfo, error) {
 			latest = lastseen
 		}
 		var hasTraceroute bool
-		if _, ok := traceroutes[ip]; ok {
+		if _, ok := tracerouteIPs[ip]; ok {
 			hasTraceroute = true
 		}
 		data = append(data, scan.IPInfo{
@@ -307,8 +307,8 @@ func (db *DB) SaveSubmission(host string, job *int64, now time.Time) error {
 	return nil
 }
 
-// LoadTraceroutes retrieves the stored traceroutes.
-func (db *DB) LoadTraceroutes() (map[string]struct{}, error) {
+// LoadTracerouteIPs retrieves the stored traceroutes.
+func (db *DB) LoadTracerouteIPs() (map[string]struct{}, error) {
 	ips := make(map[string]struct{})
 
 	rows, err := db.Query(`SELECT dest FROM traceroute`)
@@ -329,4 +329,26 @@ func (db *DB) LoadTraceroutes() (map[string]struct{}, error) {
 	}
 
 	return ips, nil
+}
+
+// LoadTraceroute retrieves a traceroute.
+func (db *DB) LoadTraceroute(dest string) (string, error) {
+	var path string
+	err := db.QueryRow(`SELECT path FROM traceroute WHERE dest = ?`, dest).Scan(&path)
+	return path, err
+}
+
+func (db *DB) SaveTraceroute(dest, trace string) error {
+	txn, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	_, err = txn.Exec(`INSERT OR REPLACE INTO traceroute (dest, path) VALUES (?, ?)`, dest, trace)
+	if err != nil {
+		txn.Rollback()
+		return err
+	}
+
+	return txn.Commit()
 }

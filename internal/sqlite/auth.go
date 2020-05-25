@@ -1,6 +1,10 @@
 package sqlite
 
-import "log"
+import (
+	"database/sql"
+	"fmt"
+	"log"
+)
 
 // LoadUsers retrieves all users.
 func (db *DB) LoadUsers() ([]string, error) {
@@ -24,6 +28,40 @@ func (db *DB) LoadUsers() ([]string, error) {
 	}
 
 	return users, nil
+}
+
+func (db *DB) LoadGroups() ([]string, error) {
+	rows, err := db.Query(`SELECT group_name FROM groups`)
+	if err != nil {
+		log.Printf("error retrieving groups from database: %v", err)
+		return nil, fmt.Errorf("error querying for groups: %w", err)
+	}
+	defer rows.Close()
+
+	var groups []string
+
+	for rows.Next() {
+		var group string
+		err := rows.Scan(&group)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning group: %w", err)
+		}
+		groups = append(groups, group)
+	}
+	return groups, nil
+}
+
+func (db *DB) UserExists(email string) (bool, error) {
+	var x string
+	err := db.QueryRow(`SELECT email FROM users WHERE email=?`, email).Scan(&x)
+	switch {
+	case err != nil && err != sql.ErrNoRows:
+		return false, nil
+	case err == nil:
+		return true, nil
+	}
+
+	return false, err
 }
 
 // SaveUser stores a new user.
