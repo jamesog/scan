@@ -215,7 +215,7 @@ traceroute to 192.0.2.1 (192.0.2.1), 64 hops max, 52 byte packets
 	postBody := new(bytes.Buffer)
 	mp := multipart.NewWriter(postBody)
 	mp.WriteField("dest", "192.0.2.1")
-	ff, err := mp.CreateFormFile("traceroute", "traceroute")
+	ff, _ := mp.CreateFormFile("traceroute", "traceroute")
 	ff.Write([]byte(route))
 	mp.Close()
 

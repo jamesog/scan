@@ -35,11 +35,11 @@ func (app *App) newJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		v := session.Values["user"]
-		switch v.(type) {
+		switch v := v.(type) {
 		case string:
-			user.Email = v.(string)
+			user.Email = v
 		case User:
-			user = v.(User)
+			user = v
 		}
 	}
 
@@ -114,7 +114,6 @@ func (app *App) newJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl.ExecuteTemplate(w, "job", data)
-	return
 }
 
 // Handler for GET /jobs

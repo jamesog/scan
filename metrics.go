@@ -70,7 +70,7 @@ func (app *App) metrics() http.Handler {
 		gaugeNew.Set(float64(results.New))
 	}
 
-	jobs, err := app.db.LoadJobs(sqlite.SQLFilter{
+	jobs, _ := app.db.LoadJobs(sqlite.SQLFilter{
 		Where: []string{`received IS NOT NULL`},
 	})
 	for _, job := range jobs {
