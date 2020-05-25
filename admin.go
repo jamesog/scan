@@ -40,11 +40,11 @@ func (app *App) adminHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := session.Values["user"]
-	switch v.(type) {
+	switch v := v.(type) {
 	case string:
-		user.Email = v.(string)
+		user.Email = v
 	case User:
-		user = v.(User)
+		user = v
 	}
 
 	users, err := app.db.LoadUsers()

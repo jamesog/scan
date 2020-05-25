@@ -81,11 +81,11 @@ func (app *App) index(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		v := session.Values["user"]
-		switch v.(type) {
+		switch v := v.(type) {
 		case string:
-			user.Email = v.(string)
+			user.Email = v
 		case User:
-			user = v.(User)
+			user = v
 		}
 	}
 
@@ -131,7 +131,6 @@ func (app *App) ips(w http.ResponseWriter, r *http.Request) {
 		ips = append(ips, r.IP)
 	}
 	render.JSON(w, r, ips)
-	return
 }
 
 func (app *App) saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, error) {
@@ -362,8 +361,7 @@ func setupTemplates() {
 			log.Println(err)
 			continue
 		}
-		var t *template.Template
-		t = tmpl.New(filepath.Base(file))
+		t := tmpl.New(filepath.Base(file))
 		template.Must(t.Parse(string(b)))
 	}
 }

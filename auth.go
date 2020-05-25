@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
@@ -270,13 +271,13 @@ func (app *App) authHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.token, err = conf.Exchange(oauth2.NoContext, q.Get("code"))
+	s.token, err = conf.Exchange(context.Background(), q.Get("code"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	s.client = conf.Client(oauth2.NoContext, s.token)
+	s.client = conf.Client(context.Background(), s.token)
 
 	var authorised bool
 
@@ -284,6 +285,10 @@ func (app *App) authHandler(w http.ResponseWriter, r *http.Request) {
 	// If the individual user is not authorised, check group membership
 
 	user, err := s.userInfo()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	authorised, err = app.validateUser(user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
