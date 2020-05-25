@@ -1,12 +1,9 @@
 language: go
 
 go:
-  - "1.11"
-  - "1.12"
+  - "1.13"
+  - "1.14"
   - master
-
-env:
-  - GO111MODULE=on
 
 matrix:
   allow_failures:
@@ -15,10 +12,7 @@ matrix:
 before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq libsqlite3-0
-  # FIXME(jamesog) Remove the first line after Go 1.11. This is a hack around modules oddities.
-  - go get github.com/go-bindata/go-bindata
   - go get github.com/go-bindata/go-bindata/...
-  - go get golang.org/x/lint/golint
 
 install:
   - go mod vendor
@@ -28,7 +22,6 @@ script:
   - VERSION=${VERSION#v*}
   - export DIST_FILE=scan-${VERSION}-$(go env GOOS)-$(go env GOARCH)
   - export SHA256_FILE=${DIST_FILE}.sha256
-  - golint -set_exit_status
   - go generate -x
   - go vet
   - go test -v
@@ -45,4 +38,4 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
-    go: "1.12"
+    go: "1.14"
