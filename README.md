@@ -7,7 +7,7 @@ Scan is a small web service for recording and displaying [Masscan](https://githu
 
 ## Building and Installation
 
-As of v0.8.1 Scan uses Go modules and requires Go 1.11 or newer to build.
+As of v0.8.1 Scan uses Go modules. Go 1.13 or newer is required to build.
 
 Precompiled binaries for Linux on x86-64 are available on the GitHub releases page.
 
@@ -24,6 +24,14 @@ Or macOS:
 ```
 brew install sqlite
 ```
+
+To generate the `scan` binary run:
+
+```
+make
+```
+
+This will generate the `bindata.go` containing static assets and build the binary.
 
 ## Database
 
