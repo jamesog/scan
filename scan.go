@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
-	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -20,7 +19,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -30,14 +28,11 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pressly/goose"
 
+	"github.com/jamesog/scan/internal/sqlite"
 	_ "github.com/jamesog/scan/migrations"
 	"github.com/jamesog/scan/pkg/scan"
 )
-
-// Human-readable date-time format
-const dateTime = "2006-01-02 15:04"
 
 var (
 	// Flag variables
@@ -49,281 +44,7 @@ var (
 
 	// HTML templates
 	tmpl *template.Template
-
-	// Database handle
-	db     *sql.DB
-	dbFile = "scan.db"
 )
-
-func openDB(dsn string) error {
-	var err error
-	db, err = sql.Open("sqlite3", dsn)
-	if err != nil {
-		return err
-	}
-
-	err = db.Ping()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Run migrations
-	goose.SetDialect("sqlite3")
-	// Use a temporary directory for goose.Up() - we don't have any .sql files
-	// to run, it's all embedded in the binary
-	tmpdir, err := ioutil.TempDir(dataDir, "")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
-
-	if verbose {
-		log.Println("Checking database migration status")
-		goose.Status(db, tmpdir)
-	} else {
-		// Discard Goose's log output
-		goose.SetLogger(log.New(ioutil.Discard, "", 0))
-	}
-	err = goose.Up(db, tmpdir)
-	if err != nil {
-		log.Fatalf("Error running database migrations: %v\n", err)
-	}
-
-	return nil
-}
-
-// NullTime "borrowed" from github.com/lib/pq
-
-// NullTime represents a time.Time that may be null. NullTime implements the
-// sql.Scanner interface so it can be used as a scan destination, similar to
-// sql.NullString.
-type NullTime struct {
-	Time  time.Time
-	Valid bool // Valid is true if Time is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (nt *NullTime) Scan(value interface{}) error {
-	nt.Time, nt.Valid = value.(time.Time)
-	return nil
-}
-
-// Value implements the Valuer interface.
-func (nt NullTime) Value() (driver.Value, error) {
-	if !nt.Valid {
-		return nil, nil
-	}
-	return nt.Time, nil
-}
-
-func toNullInt64(i *int64) sql.NullInt64 {
-	var ni sql.NullInt64
-	if i != nil {
-		ni = sql.NullInt64{Int64: *i, Valid: true}
-	}
-	return ni
-}
-
-// sqlFilter is for constructing data filters ("WHERE" clauses) in a SQL statement
-type sqlFilter struct {
-	Where  []string
-	Values []interface{}
-}
-
-// String constructs a SQL WHERE clause.
-func (f sqlFilter) String() string {
-	if len(f.Where) > 0 {
-		return "WHERE " + strings.Join(f.Where, " AND ")
-	}
-	return ""
-}
-
-// Load all data for displaying in the browser
-func loadData(filter sqlFilter) ([]scan.IPInfo, error) {
-	qry := fmt.Sprintf(`SELECT ip, port, proto, firstseen, lastseen FROM scan %s ORDER BY port, proto, ip, lastseen`, filter)
-	rows, err := db.Query(qry, filter.Values...)
-	if err != nil {
-		return []scan.IPInfo{}, err
-	}
-
-	defer rows.Close()
-
-	var data []scan.IPInfo
-	var ip, proto string
-	var firstseen, lastseen time.Time
-	var port int
-	var latest time.Time
-
-	traceroutes, err := loadTraceroutes()
-	if err != nil {
-		return []scan.IPInfo{}, err
-	}
-
-	submission, err := loadSubmission(sqlFilter{Where: []string{"job_id IS NULL"}})
-	if err == nil {
-		latest = time.Time(submission.Time)
-	}
-
-	for rows.Next() {
-		err := rows.Scan(&ip, &port, &proto, &firstseen, &lastseen)
-		if err != nil {
-			log.Println("loadData: error scanning table:", err)
-			return []scan.IPInfo{}, err
-		}
-		if lastseen.After(latest) {
-			latest = lastseen
-		}
-		var hasTraceroute bool
-		if _, ok := traceroutes[ip]; ok {
-			hasTraceroute = true
-		}
-		data = append(data, scan.IPInfo{
-			IP:            ip,
-			Port:          port,
-			Proto:         proto,
-			FirstSeen:     scan.Time{Time: firstseen},
-			LastSeen:      scan.Time{Time: lastseen},
-			New:           firstseen.Equal(lastseen) && lastseen == latest,
-			Gone:          lastseen.Before(latest),
-			HasTraceroute: hasTraceroute})
-	}
-
-	return data, nil
-}
-
-// Save the results posted
-func saveData(results []scan.Result, now time.Time) (int64, error) {
-	txn, err := db.Begin()
-	if err != nil {
-		return 0, err
-	}
-
-	insert, err := txn.Prepare(`INSERT INTO scan (ip, port, proto, firstseen, lastseen) VALUES (?, ?, ?, ?, ?)`)
-	if err != nil {
-		txn.Rollback()
-		return 0, err
-	}
-	qry, err := txn.Prepare(`SELECT 1 FROM scan WHERE ip=? AND port=? AND proto=?`)
-	if err != nil {
-		txn.Rollback()
-		return 0, err
-	}
-	update, err := txn.Prepare(`UPDATE scan SET lastseen=? WHERE ip=? AND port=? AND proto=?`)
-	if err != nil {
-		txn.Rollback()
-		return 0, err
-	}
-
-	var count int64
-
-	for _, r := range results {
-		// Although it's an array, only one port is in each
-		port := r.Ports[0]
-
-		// Skip results which are (usually) banner-only
-		// While it would be nice to store banners, we need to restructure a
-		// bit to accommodate this and it just inserts duplicate data for now
-		if port.Status == "" || port.Service.Name != "" {
-			continue
-		}
-
-		// Search for the IP/port/proto combo
-		// If it exists, update `lastseen`, else insert a new record
-
-		// Because we have to scan into something
-		var x int
-		err := qry.QueryRow(r.IP, port.Port, port.Proto).Scan(&x)
-		switch {
-		case err == sql.ErrNoRows:
-			_, err = insert.Exec(r.IP, port.Port, port.Proto, now, now)
-			if err != nil {
-				txn.Rollback()
-				return 0, err
-			}
-			count++
-			continue
-		case err != nil:
-			txn.Rollback()
-			return 0, err
-		}
-
-		_, err = update.Exec(now, r.IP, port.Port, port.Proto)
-		if err != nil {
-			txn.Rollback()
-			return 0, err
-		}
-
-		count++
-	}
-
-	txn.Commit()
-	return count, nil
-}
-
-func loadSubmission(filter sqlFilter) (submission, error) {
-	var host string
-	var job sql.NullInt64
-	var subTime NullTime
-
-	qry := fmt.Sprintf(`SELECT host, job_id, submission_time FROM submission %s ORDER BY rowid DESC LIMIT 1`, filter)
-	err := db.QueryRow(qry, filter.Values...).Scan(&host, &job, &subTime)
-	if err != nil && err != sql.ErrNoRows {
-		log.Println("loadSubmission: error scanning table:", err)
-		return submission{}, err
-	}
-
-	return submission{Host: host, Job: job.Int64, Time: scanTime(subTime.Time.UTC())}, nil
-}
-
-func saveSubmission(host string, job *int64, now time.Time) error {
-	txn, err := db.Begin()
-	if err != nil {
-		return err
-	}
-
-	qry := `INSERT INTO submission (host, job_id, submission_time) VALUES (?, ?, ?)`
-	_, err = txn.Exec(qry, host, toNullInt64(job), now)
-	if err != nil {
-		txn.Rollback()
-		return err
-	}
-
-	err = txn.Commit()
-	if err != nil {
-		return err
-	}
-
-	if job != nil {
-		gaugeJobSubmission.Set(float64(now.Unix()))
-	} else {
-		gaugeSubmission.Set(float64(now.Unix()))
-	}
-
-	return nil
-}
-
-func loadTraceroutes() (map[string]struct{}, error) {
-	ips := make(map[string]struct{})
-
-	rows, err := db.Query(`SELECT dest FROM traceroute`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var ip string
-	for rows.Next() {
-		err := rows.Scan(&ip)
-		if err != nil {
-			return nil, err
-		}
-		if _, ok := ips[ip]; !ok {
-			ips[ip] = struct{}{}
-		}
-	}
-
-	return ips, nil
-}
 
 type indexData struct {
 	NotAuth       string
@@ -332,86 +53,16 @@ type indexData struct {
 	User          User
 	URI           string
 	AllResults    bool
-	Submission    submission
-	scanData
+	Submission    scan.Submission
+	scan.Data
 }
 
-type scanData struct {
-	Total    int
-	Latest   int
-	New      int
-	LastSeen int64
-	Results  []scan.IPInfo
-}
-
-type submission struct {
-	Host string
-	Job  int64
-	Time scanTime
-}
-
-func resultData(ip, fs, ls string) (scanData, error) {
-	var filter sqlFilter
-	if ip != "" {
-		filter.Where = append(filter.Where, `ip LIKE ?`)
-		filter.Values = append(filter.Values, fmt.Sprintf("%%%s%%", ip))
-	}
-	if fs != "" {
-		i, err := strconv.ParseInt(fs, 10, 0)
-		if err != nil {
-			log.Printf("couldn't parse firstseen value %q: %v", ls, err)
-		} else {
-			t := time.Unix(i, 0).UTC()
-			filter.Where = append(filter.Where, `firstseen=?`)
-			filter.Values = append(filter.Values, t)
-		}
-	}
-	if ls != "" {
-		i, err := strconv.ParseInt(ls, 10, 0)
-		if err != nil {
-			log.Printf("couldn't parse lastseen value %q: %v", ls, err)
-		} else {
-			t := time.Unix(i, 0).UTC()
-			filter.Where = append(filter.Where, `lastseen=?`)
-			filter.Values = append(filter.Values, t)
-		}
-	}
-
-	results, err := loadData(filter)
-	if err != nil {
-		return scanData{}, err
-	}
-
-	data := scanData{
-		Results: results,
-		Total:   len(results),
-	}
-
-	// Find all the latest results and store the number in the struct
-	// Set latest to Unix(0, 0) rather than the default zero value of the type
-	// to allow tests to receive an actual 0 value rather than a negative int
-	latest := time.Unix(0, 0)
-	for _, r := range results {
-		last := r.LastSeen.Time
-		if last.After(latest) {
-			latest = last
-		}
-	}
-	for _, r := range results {
-		if !r.Gone {
-			data.Latest++
-		}
-		if r.New {
-			data.New++
-		}
-	}
-	data.LastSeen = latest.Unix()
-
-	return data, nil
+type App struct {
+	db *sqlite.DB
 }
 
 // Handler for GET /
-func index(w http.ResponseWriter, r *http.Request) {
+func (app *App) index(w http.ResponseWriter, r *http.Request) {
 	var user User
 	if !authDisabled {
 		session, err := store.Get(r, "user")
@@ -444,13 +95,13 @@ func index(w http.ResponseWriter, r *http.Request) {
 	lastSeen := q.Get("lastseen")
 	_, allResults := q["all"]
 
-	results, err := resultData(ip, firstSeen, lastSeen)
+	results, err := app.db.ResultData(ip, firstSeen, lastSeen)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	sub, err := loadSubmission(sqlFilter{})
+	sub, err := app.db.LoadSubmission(sqlite.SQLFilter{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -462,15 +113,15 @@ func index(w http.ResponseWriter, r *http.Request) {
 		URI:           r.URL.Path,
 		AllResults:    allResults,
 		Submission:    sub,
-		scanData:      results,
+		Data:          results,
 	}
 	tmpl.ExecuteTemplate(w, "index", data)
 }
 
 // Handler for GET /ips.json
 // This is used as the prefetch for Typeahead.js
-func ips(w http.ResponseWriter, r *http.Request) {
-	data, err := loadData(sqlFilter{})
+func (app *App) ips(w http.ResponseWriter, r *http.Request) {
+	data, err := app.db.LoadData(sqlite.SQLFilter{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -483,25 +134,7 @@ func ips(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-type scanTime time.Time
-
-func (st scanTime) String() string {
-	t := time.Time(st)
-	if t.IsZero() {
-		return ""
-	}
-	return t.Format(dateTime)
-}
-
-func (st scanTime) IsZero() bool {
-	return time.Time(st).IsZero()
-}
-
-func (st scanTime) Unix() int64 {
-	return time.Time(st).Unix()
-}
-
-func saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, error) {
+func (app *App) saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, error) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return 0, errors.New("invalid Content-Type")
@@ -514,7 +147,7 @@ func saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, 
 		return 0, err
 	}
 
-	count, err := saveData(*res, now)
+	count, err := app.db.SaveData(*res, now)
 	if err != nil {
 		return 0, err
 	}
@@ -523,9 +156,9 @@ func saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, 
 }
 
 // Handler for POST /results
-func recvResults(w http.ResponseWriter, r *http.Request) {
+func (app *App) recvResults(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC().Truncate(time.Second)
-	_, err := saveResults(w, r, now)
+	_, err := app.saveResults(w, r, now)
 	if err != nil {
 		log.Println("recvResults: error saving results:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -535,7 +168,7 @@ func recvResults(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ip = r.RemoteAddr
 	}
-	err = saveSubmission(ip, nil, now)
+	err = app.db.SaveSubmission(ip, nil, now)
 	if err != nil {
 		log.Println("recvResults: error saving submission:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -543,10 +176,11 @@ func recvResults(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update metrics with latest data
-	results, err := resultData("", "", "")
+	results, err := app.db.ResultData("", "", "")
 	if err != nil {
 		log.Printf("saveResults: error fetching results for metrics update: %v\n", err)
 	} else {
+		gaugeSubmission.Set(float64(now.Unix()))
 		gaugeTotal.Set(float64(results.Total))
 		gaugeLatest.Set(float64(results.Latest))
 		gaugeNew.Set(float64(results.New))
@@ -554,7 +188,7 @@ func recvResults(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handler for POST /traceroute
-func recvTraceroute(w http.ResponseWriter, r *http.Request) {
+func (app *App) recvTraceroute(w http.ResponseWriter, r *http.Request) {
 	dest := r.FormValue("dest")
 	f, _, err := r.FormFile("traceroute")
 	if err != nil {
@@ -567,7 +201,8 @@ func recvTraceroute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	txn, err := db.Begin()
+	// FIXME(jamesog): This needs to be moved out to its own function
+	txn, err := app.db.Begin()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -591,11 +226,12 @@ func recvTraceroute(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handler for GET /traceroute/{ip}
-func traceroute(w http.ResponseWriter, r *http.Request) {
+func (app *App) traceroute(w http.ResponseWriter, r *http.Request) {
 	ip := chi.URLParam(r, "ip")
 
+	// FIXME(jamesog): This needs to be moved out to its own function
 	var path string
-	err := db.QueryRow(`SELECT path FROM traceroute WHERE dest = ?`, ip).Scan(&path)
+	err := app.db.QueryRow(`SELECT path FROM traceroute WHERE dest = ?`, ip).Scan(&path)
 	switch {
 	case err == sql.ErrNoRows:
 		http.Error(w, "Traceroute not found", http.StatusNotFound)
@@ -673,7 +309,7 @@ func staticHandler(w http.ResponseWriter, r *http.Request) {
 	http.NotFound(w, r)
 }
 
-func setupRouter(middlewares ...func(http.Handler) http.Handler) *chi.Mux {
+func (app *App) setupRouter(middlewares ...func(http.Handler) http.Handler) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
@@ -683,25 +319,25 @@ func setupRouter(middlewares ...func(http.Handler) http.Handler) *chi.Mux {
 
 	assets = loadAssetsFromDir("static")
 
-	r.Get("/", index)
+	r.Get("/", app.index)
 	r.Route("/admin", func(r chi.Router) {
-		r.Get("/", adminHandler)
-		r.Post("/", adminHandler)
+		r.Get("/", app.adminHandler)
+		r.Post("/", app.adminHandler)
 	})
-	r.Get("/auth", authHandler)
-	r.Get("/ips.json", ips)
+	r.Get("/auth", app.authHandler)
+	r.Get("/ips.json", app.ips)
 	r.Route("/job", func(r chi.Router) {
-		r.Get("/", newJob)
-		r.Post("/", newJob)
+		r.Get("/", app.newJob)
+		r.Post("/", app.newJob)
 	})
-	r.Get("/jobs", jobs)
-	r.Get("/login", loginHandler)
-	r.Get("/logout", logoutHandler)
-	r.Post("/results", recvResults)
-	r.Put("/results/{id}", recvJobResults)
+	r.Get("/jobs", app.jobs)
+	r.Get("/login", app.loginHandler)
+	r.Get("/logout", app.logoutHandler)
+	r.Post("/results", app.recvResults)
+	r.Put("/results/{id}", app.recvJobResults)
 	r.Get("/static/*", staticHandler)
-	r.Post("/traceroute", recvTraceroute)
-	r.Get("/traceroute/{ip}", traceroute)
+	r.Post("/traceroute", app.recvTraceroute)
+	r.Get("/traceroute/{ip}", app.traceroute)
 
 	return r
 }
@@ -763,9 +399,11 @@ func main() {
 		oauthConfig()
 	}
 
-	if err := openDB(filepath.Join(dataDir, dbFile)); err != nil {
+	db, err := sqlite.Open(filepath.Join(dataDir, sqlite.DefaultDBFile))
+	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
+	app := &App{db: db}
 
 	setupTemplates()
 
@@ -787,7 +425,7 @@ func main() {
 		middlewares = append(middlewares, m.HTTPHandler, redirectHTTPS)
 	}
 
-	r := setupRouter(middlewares...)
+	r := app.setupRouter(middlewares...)
 
 	// Common http.Server timeout values
 	readTimeout := 5 * time.Second
@@ -808,7 +446,7 @@ func main() {
 	if *metricsTLS {
 		metricsMux.Use(redirectHTTPS)
 	}
-	metricsMux.Handle("/metrics", metrics())
+	metricsMux.Handle("/metrics", app.metrics())
 	metricsSrv := &http.Server{
 		Addr:         *metricsAddr,
 		Handler:      metricsMux,

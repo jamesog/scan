@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jamesog/scan/internal/sqlite"
 	"github.com/jamesog/scan/pkg/scan"
 )
 
@@ -22,22 +23,18 @@ func init() {
 	setupTemplates()
 }
 
-func createDB(test string) {
-	var err error
-	err = openDB(fmt.Sprintf("file:%s?mode=memory&cache=shared", test))
+func createDB(test string) *sqlite.DB {
+	db, err := sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", test))
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func destroyDB() {
-	db.Close()
+	return db
 }
 
 func TestLoadDataWithNoResults(t *testing.T) {
-	createDB("TestLoadDataWithNoResults")
-	defer destroyDB()
-	data, err := loadData(sqlFilter{})
+	db := createDB("TestLoadDataWithNoResults")
+	defer db.Close()
+	data, err := db.LoadData(sqlite.SQLFilter{})
 	if err != nil {
 		t.Fatalf("error from loadData: %v", err)
 	}
@@ -47,9 +44,9 @@ func TestLoadDataWithNoResults(t *testing.T) {
 }
 
 func TestLoadTraceroutesWithNoResults(t *testing.T) {
-	createDB("TestLoadTraceroutesWithNoResults")
-	defer destroyDB()
-	tr, err := loadTraceroutes()
+	db := createDB("TestLoadTraceroutesWithNoResults")
+	defer db.Close()
+	tr, err := db.LoadTraceroutes()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,14 +56,14 @@ func TestLoadTraceroutesWithNoResults(t *testing.T) {
 }
 
 func TestSaveData(t *testing.T) {
-	createDB("TestSaveData")
-	defer destroyDB()
+	db := createDB("TestSaveData")
+	defer db.Close()
 	results := []scan.Result{
 		{IP: "192.0.2.1", Ports: []scan.Port{{Port: 80, Proto: "tcp", Status: "open"}}},
 		{IP: "192.0.2.2", Ports: []scan.Port{{Port: 80, Proto: "tcp", Status: "open"}}},
 		{IP: "192.0.2.3", Ports: []scan.Port{{Port: 80, Proto: "tcp", Status: "open"}}},
 	}
-	count, err := saveData(results, time.Now().UTC())
+	count, err := db.SaveData(results, time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,10 +74,10 @@ func TestSaveData(t *testing.T) {
 }
 
 func TestResultData(t *testing.T) {
-	createDB("TestResultData")
-	defer destroyDB()
-	want := scanData{Total: 0, Latest: 0, New: 0, LastSeen: time.Unix(0, 0).Unix(), Results: nil}
-	data, err := resultData("", "", "")
+	db := createDB("TestResultData")
+	defer db.Close()
+	want := scan.Data{Total: 0, Latest: 0, New: 0, LastSeen: time.Unix(0, 0).Unix(), Results: nil}
+	data, err := db.ResultData("", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,12 +89,13 @@ func TestResultData(t *testing.T) {
 // TestIndexHandlerWithoutAuth tests fetching the index page with
 // authentication disabled
 func TestIndexHandlerWithoutAuth(t *testing.T) {
-	createDB("TestIndexHandlerWithoutAuth")
-	defer destroyDB()
+	db := createDB("TestIndexHandlerWithoutAuth")
+	defer db.Close()
+	app := App{db: db}
 
 	r := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
-	index(w, r)
+	app.index(w, r)
 
 	resp := w.Result()
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -108,12 +106,13 @@ func TestIndexHandlerWithoutAuth(t *testing.T) {
 
 // TestIPsHandler tests that we get expected JSON data
 func TestIPsHandler(t *testing.T) {
-	createDB("TestIPsHandler")
-	defer destroyDB()
+	db := createDB("TestIPsHandler")
+	defer db.Close()
+	app := App{db: db}
 
 	r := httptest.NewRequest("GET", "/ips.json", nil)
 	w := httptest.NewRecorder()
-	ips(w, r)
+	app.ips(w, r)
 
 	resp := w.Result()
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -127,15 +126,16 @@ func TestIPsHandler(t *testing.T) {
 }
 
 func TestResultsHandler(t *testing.T) {
-	createDB("TestResultsHandler")
-	defer destroyDB()
+	db := createDB("TestResultsHandler")
+	defer db.Close()
+	app := App{db: db}
 
 	data := bytes.NewBuffer([]byte(`[{"ip":"192.0.2.1","ports":[{"port":80,"proto":"tcp","status":"open","reason":"syn-ack","ttl":57}]}]`))
 
 	r := httptest.NewRequest("POST", "/results", data)
 	r.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
-	recvResults(w, r)
+	app.recvResults(w, r)
 
 	resp := w.Result()
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -143,8 +143,8 @@ func TestResultsHandler(t *testing.T) {
 		t.Errorf("expected status 200, got %v: %s", resp.StatusCode, body)
 	}
 
-	filter := sqlFilter{Where: []string{"ip = ?"}, Values: []interface{}{"192.0.2.1"}}
-	results, err := loadData(filter)
+	filter := sqlite.SQLFilter{Where: []string{"ip = ?"}, Values: []interface{}{"192.0.2.1"}}
+	results, err := db.LoadData(filter)
 	if err != nil {
 		t.Errorf("couldn't retrieve results from database: %v", err)
 	}
@@ -184,8 +184,9 @@ func TestResultsHandler(t *testing.T) {
 // TestTracerouteHandler tests fetching a route, ensuring it fails, uploading
 // that route then fetching it.
 func TestTracerouteHandler(t *testing.T) {
-	createDB("TestTracerouteHandler")
-	defer destroyDB()
+	db := createDB("TestTracerouteHandler")
+	defer db.Close()
+	app := App{db: db}
 
 	route := `
 traceroute to 192.0.2.1 (192.0.2.1), 64 hops max, 52 byte packets
@@ -193,7 +194,7 @@ traceroute to 192.0.2.1 (192.0.2.1), 64 hops max, 52 byte packets
 2  server.example.com (192.0.2.1)  8.134 ms !N  6.533 ms !N  6.295 ms !N
 `
 
-	mux := setupRouter()
+	mux := app.setupRouter()
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
@@ -221,7 +222,7 @@ traceroute to 192.0.2.1 (192.0.2.1), 64 hops max, 52 byte packets
 	req = httptest.NewRequest("POST", "/traceroute", postBody)
 	req.Header.Set("Content-Type", mp.FormDataContentType())
 	w := httptest.NewRecorder()
-	recvTraceroute(w, req)
+	app.recvTraceroute(w, req)
 
 	resp = w.Result()
 	body, _ = ioutil.ReadAll(resp.Body)

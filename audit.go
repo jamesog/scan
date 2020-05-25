@@ -3,8 +3,8 @@ package main
 import "time"
 
 // audit logs events to the audit table
-func audit(user, event, info string) error {
-	txn, err := db.Begin()
+func (app *App) audit(user, event, info string) error {
+	txn, err := app.db.Begin()
 	if err != nil {
 		return err
 	}

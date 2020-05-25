@@ -3,8 +3,8 @@ package main
 import (
 	"net/http"
 	"strconv"
-	"time"
 
+	"github.com/jamesog/scan/internal/sqlite"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -62,26 +62,26 @@ func init() {
 	prometheus.MustRegister(gaugeJobSubmission)
 }
 
-func metrics() http.Handler {
-	results, err := resultData("", "", "")
+func (app *App) metrics() http.Handler {
+	results, err := app.db.ResultData("", "", "")
 	if err == nil {
 		gaugeTotal.Set(float64(results.Total))
 		gaugeLatest.Set(float64(results.Latest))
 		gaugeNew.Set(float64(results.New))
 	}
 
-	jobs, err := loadJobs(sqlFilter{
+	jobs, err := app.db.LoadJobs(sqlite.SQLFilter{
 		Where: []string{`received IS NOT NULL`},
 	})
 	for _, job := range jobs {
 		gaugeJobs.With(prometheus.Labels{
 			"id":        strconv.Itoa(job.ID),
-			"submitted": strconv.FormatInt(time.Time(job.Submitted).Unix(), 10),
-			"received":  strconv.FormatInt(time.Time(job.Received).Unix(), 10),
+			"submitted": strconv.FormatInt(job.Submitted.Unix(), 10),
+			"received":  strconv.FormatInt(job.Received.Unix(), 10),
 		}).Set(float64(job.Count))
 	}
 
-	sub, _ := loadSubmission(sqlFilter{})
+	sub, _ := app.db.LoadSubmission(sqlite.SQLFilter{})
 	gaugeSubmission.Set(float64(sub.Time.Unix()))
 
 	return promhttp.Handler()
