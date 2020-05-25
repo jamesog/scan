@@ -6,7 +6,10 @@ all: build
 .PHONY: build
 build: assets scan
 
-scan: *.go
+dirs    := $(shell go list -f '{{.Dir}}' ./...)
+gofiles := $(foreach dir,$(dirs),$(wildcard $(dir)/*.go))
+
+scan: $(gofiles)
 	go build
 
 .PHONY: assets
