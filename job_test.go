@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestUpdateJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = db.UpdateJob(string(id), 999)
+	err = db.UpdateJob(strconv.FormatInt(id, 10), 999)
 	if err != nil {
 		t.Errorf("error updating job: %v", err)
 	}
