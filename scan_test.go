@@ -104,27 +104,6 @@ func TestIndexHandlerWithoutAuth(t *testing.T) {
 	}
 }
 
-// TestIPsHandler tests that we get expected JSON data
-func TestIPsHandler(t *testing.T) {
-	db := createDB("TestIPsHandler")
-	defer db.Close()
-	app := App{db: db}
-
-	r := httptest.NewRequest("GET", "/ips.json", nil)
-	w := httptest.NewRecorder()
-	app.ips(w, r)
-
-	resp := w.Result()
-	body, _ := ioutil.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("expected status 200, got %v: %s", resp.StatusCode, body)
-	}
-	ct := resp.Header.Get("Content-Type")
-	if ct != "application/json" {
-		t.Errorf("expected Content-Type: %s, got %v", "application/json", ct)
-	}
-}
-
 func TestResultsHandler(t *testing.T) {
 	db := createDB("TestResultsHandler")
 	defer db.Close()
