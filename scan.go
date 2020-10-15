@@ -26,7 +26,6 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
-	"github.com/go-chi/render"
 
 	"github.com/jamesog/scan/internal/sqlite"
 	"github.com/jamesog/scan/pkg/scan"
@@ -135,21 +134,6 @@ func (app *App) index(w http.ResponseWriter, r *http.Request) {
 		Data:          results,
 	}
 	tmpl.ExecuteTemplate(w, "index", data)
-}
-
-// Handler for GET /ips.json
-// This is used as the prefetch for Typeahead.js
-func (app *App) ips(w http.ResponseWriter, r *http.Request) {
-	data, err := app.db.LoadData(sqlite.SQLFilter{})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	var ips []string
-	for _, r := range data {
-		ips = append(ips, r.IP)
-	}
-	render.JSON(w, r, ips)
 }
 
 func (app *App) saveResults(w http.ResponseWriter, r *http.Request, now time.Time) (int64, error) {
@@ -327,7 +311,6 @@ func (app *App) setupRouter(middlewares ...func(http.Handler) http.Handler) *chi
 		r.Post("/", app.adminHandler)
 	})
 	r.Get("/auth", app.authHandler)
-	r.Get("/ips.json", app.ips)
 	r.Route("/job", func(r chi.Router) {
 		r.Get("/", app.newJob)
 		r.Post("/", app.newJob)
