@@ -1,0 +1,117 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
+version: 2.1
+
+executors:
+  go:
+    docker:
+      - image: circleci/golang:1.16
+
+orbs:
+  go: circleci/go@1.6.0
+
+jobs:
+  bindata:
+    executor:
+      name: go/default
+      tag: '1.16'
+    
+    steps:
+      - checkout
+      - run:
+          name: Install go-bindata
+          command: |
+            go get github.com/go-bindata/go-bindata/...
+      - run:
+          name: Generate bindata.go
+          command: go generate -x
+      - persist_to_workspace:
+          root: .
+          paths:
+            - "bindata.go"
+
+  build:
+    parameters:
+      go_version:
+        description: Go version
+        type: string
+        default: "1.16"
+    
+    environment:
+      TEST_RESULTS: &test_results /tmp/test-results
+    
+    executor:
+      name: go/default
+      tag: << parameters.go_version >>
+    
+    steps:
+      - checkout
+      - go/mod-download-cached
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install SQLite
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y libsqlite3-0
+      - run:
+          name: Configure environment
+          command: |
+            echo 'VERSION=${CIRCLECI_TAG:-$(git describe)}' >> $BASH_ENV
+            echo 'VERSION=${VERSION#v*}' >> $BASH_ENV
+            echo 'DIST_NAME=scan-${VERSION}-$(go env GOOS)-$(go env GOARCH)' >> $BASH_ENV
+            echo 'SHA256_FILE=${DIST_NAME}.sha256' >> $BASH_ENV
+      - run:
+          name: Run unit tests
+          command: |
+            mkdir -p $TEST_RESULTS
+            gotestsum --junitfile $TEST_RESULTS/scan-tests.xml -- -coverprofile $TEST_RESULTS/cover.out
+      - store_artifacts:
+          path: *test_results
+          destination: test-results
+      - store_test_results:
+          path: *test_results
+      - run:
+          name: Build binary
+          command: |
+            mkdir .build
+            go build -o .build/$DIST_NAME
+            cd .build
+            shasum -a 256 $DIST_NAME > $SHA256_FILE
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .build
+      - store_artifacts:
+          path: .build
+          destination: .
+
+  upload:
+    docker:
+      - image: cibuilds/github:0.13
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Publish release to GitHub
+          command: |
+            VERSION=${CIRCLECI_TAG:-$(git describe)}
+            ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./.build/
+
+workflows:
+  build_and_upload:
+    jobs:
+      - bindata
+      - build:
+          requires:
+            - bindata
+          matrix:
+            parameters:
+              go_version: ["1.15", "1.16"]
+      - upload:
+          requires:
+            - build-1.16
+          filters:
+            branches:
+              only: master
+            tags:
+              only: /^v.*/
