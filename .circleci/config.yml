@@ -37,7 +37,7 @@ jobs:
         default: "1.16"
     
     environment:
-      TEST_RESULTS: /tmp/test-results
+      TEST_RESULTS: &test_results /tmp/test-results
     
     executor:
       name: go/default
@@ -66,9 +66,9 @@ jobs:
             mkdir -p $TEST_RESULTS
             gotestsum --junitfile $TEST_RESULTS/scan-tests.xml -- -coverprofile $TEST_RESULTS/cover.out
       - store_artifacts:
-          path: $TEST_RESULTS
+          path: *test_results
       - store_test_results:
-          path: $TEST_RESULTS 
+          path: *test_results
       - run:
           name: Build binary
           command: |
