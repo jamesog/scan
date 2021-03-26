@@ -60,7 +60,7 @@ jobs:
           command: |
             mkdir .build
             go build -o .build/$DIST_NAME
-            shasum -a 256 .build/$DIST_FILE > .build/$SHA256_FILE
+            shasum -a 256 .build/$DIST_NAME > .build/$SHA256_FILE
       - persist_to_workspace:
           root: .
           paths:
