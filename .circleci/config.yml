@@ -61,12 +61,13 @@ jobs:
             echo 'DIST_NAME=scan-${VERSION}-$(go env GOOS)-$(go env GOARCH)' >> $BASH_ENV
             echo 'SHA256_FILE=${DIST_NAME}.sha256' >> $BASH_ENV
       - run:
-          name: Unit tests
+          name: Run unit tests
           command: |
             mkdir -p $TEST_RESULTS
             gotestsum --junitfile $TEST_RESULTS/scan-tests.xml -- -coverprofile $TEST_RESULTS/cover.out
       - store_artifacts:
           path: *test_results
+          destination: test-results
       - store_test_results:
           path: *test_results
       - run:
@@ -74,14 +75,15 @@ jobs:
           command: |
             mkdir .build
             go build -o .build/$DIST_NAME
-            shasum -a 256 .build/$DIST_NAME > .build/$SHA256_FILE
+            cd .build
+            shasum -a 256 $DIST_NAME > $SHA256_FILE
       - persist_to_workspace:
           root: .
           paths:
             - .build
       - store_artifacts:
           path: .build
-          destination: ""
+          destination: .
 
   upload:
     docker:
