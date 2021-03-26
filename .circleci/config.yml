@@ -60,14 +60,15 @@ jobs:
             echo 'VERSION=${VERSION#v*}' >> $BASH_ENV
             echo 'DIST_NAME=scan-${VERSION}-$(go env GOOS)-$(go env GOARCH)' >> $BASH_ENV
             echo 'SHA256_FILE=${DIST_NAME}.sha256' >> $BASH_ENV
-      - run: mkdir -p $TEST_RESULTS
-      - go/test
       - run:
-          name: Tests
+          name: Unit tests
           command: |
+            mkdir -p $TEST_RESULTS
             gotestsum --junitfile $TEST_RESULTS/scan-tests.xml -- -coverprofile $TEST_RESULTS/cover.out
       - store_artifacts:
           path: $TEST_RESULTS
+      - store_test_results:
+          path: $TEST_RESULTS 
       - run:
           name: Build binary
           command: |
