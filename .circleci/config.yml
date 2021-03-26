@@ -53,8 +53,10 @@ jobs:
             echo 'VERSION=${CIRCLECI_TAG:-$(git describe)}' >> $BASH_ENV
             echo 'VERSION=${VERSION#v*}' >> $BASH_ENV
             echo 'DIST_NAME=scan-${VERSION}-$(go env GOOS)-$(go env GOARCH)' >> $BASH_ENV
-            echo 'SHA256_FILE=${DIST_FILE}.sha256' >> $BASH_ENV
+            echo 'SHA256_FILE=${DIST_NAME}.sha256' >> $BASH_ENV
       - go/test
+      - store_artifacts:
+          path: .
       - run:
           name: Build binary
           command: |
@@ -67,6 +69,7 @@ jobs:
             - .build
       - store_artifacts:
           path: .build
+          destination: ""
 
   upload:
     docker:
