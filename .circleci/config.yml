@@ -85,7 +85,19 @@ jobs:
           path: .build
           destination: .
 
-  upload:
+  upload-prerelease:
+    docker:
+      - image: cibuilds/github:0.13
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Publish pre-release to GitHub
+          command: |
+            VERSION=${CIRCLECI_TAG:-$(git describe --always)}
+            ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete -draft -prerelease ${VERSION} ./.build/
+
+  upload-release:
     docker:
       - image: cibuilds/github:0.13
     steps:
@@ -94,8 +106,9 @@ jobs:
       - run:
           name: Publish release to GitHub
           command: |
-            VERSION=${CIRCLECI_TAG:-$(git describe)}
+            VERSION=${CIRCLECI_TAG:-$(git describe --always)}
             ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./.build/
+
 
 workflows:
   build_and_upload:
@@ -107,7 +120,13 @@ workflows:
           matrix:
             parameters:
               go_version: ["1.15", "1.16"]
-      - upload:
+      - upload-prerelease:
+          requires:
+            - build-1.16
+          filters:
+            branches:
+              ignore: master
+      - upload-release:
           requires:
             - build-1.16
           filters:
