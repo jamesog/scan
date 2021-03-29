@@ -108,7 +108,7 @@ workflows:
         - not: << pipeline.git.tag >>
         - not:
             equal: [ master, << pipeline.git.branch >> ]
-    jobs: &build-jobs
+    jobs:
       - bindata
       - build:
           requires:
@@ -118,9 +118,15 @@ workflows:
               go_version: ["1.15", "1.16"]
   Build and upload:
     when:
-      equal: [ master, << pipeline.git.branch ]
+      equal: [ master, << pipeline.git.branch >> ]
     jobs:
-      <<: *build-jobs
+      - bindata
+      - build:
+          requires:
+            - bindata
+          matrix:
+            parameters:
+              go_version: ["1.15", "1.16"]
       - upload:
           untagged: true
           requires:
