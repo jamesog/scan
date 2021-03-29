@@ -89,6 +89,7 @@ jobs:
     docker:
       - image: cibuilds/github:0.13
     steps:
+      - checkout  # Needed so we can get git metadata
       - attach_workspace:
           at: .
       - run:
@@ -101,6 +102,7 @@ jobs:
     docker:
       - image: cibuilds/github:0.13
     steps:
+      - checkout  # Needed so we can get git metadata
       - attach_workspace:
           at: .
       - run:
