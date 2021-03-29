@@ -96,7 +96,7 @@ jobs:
           name: Publish pre-release to GitHub
           command: |
             VERSION=${CIRCLECI_TAG:-$(git describe --always)}
-            ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete -draft -prerelease ${VERSION} ./.build/
+            ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete -prerelease ${VERSION} ./.build/
 
   upload-release:
     docker:
