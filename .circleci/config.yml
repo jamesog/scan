@@ -102,7 +102,7 @@ jobs:
             ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete <<# parameters.untagged >>-prerelease <</ parameters.untagged>>${VERSION} ./.build/
 
 workflows:
-  Build and release:
+  Branch builds:
     jobs:
       - bindata
       - build:
@@ -111,19 +111,46 @@ workflows:
           matrix:
             parameters:
               go_version: ["1.15", "1.16"]
+          filters:
+            branches:
+              ignore: master
+
+  Pre-release:
+    jobs:
+      - bindata:
+          filters: &filters-prerelease
+            branches:
+              only: master
+            tags:
+              ignore: /.*/
+      - build:
+          requires:
+            - bindata
+          filters:
+            <<: *filters-prerelease
       - upload:
           untagged: true
           requires:
-            - build-1.16
+            - build
           filters:
-            branches:
-              only: master
-      - upload:
-          untagged: false
-          requires:
-            - build-1.16
-          filters:
+            <<: *filters-prerelease
+
+  Release:
+    jobs:
+      - bindata:
+          filters: &filters-release
             branches:
               only: master
             tags:
               only: /^v.*/
+      - build:
+          requires:
+            - bindata
+          filters:
+            <<: *filters-release
+      - upload:
+          untagged: false
+          requires:
+            - build
+          filters:
+            <<: *filters-release
