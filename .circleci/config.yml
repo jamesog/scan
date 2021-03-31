@@ -104,7 +104,10 @@ jobs:
 workflows:
   Branch builds:
     jobs:
-      - bindata
+      - bindata:
+          filters: &filters-branch
+            branches:
+              ignore: master
       - build:
           requires:
             - bindata
@@ -112,8 +115,7 @@ workflows:
             parameters:
               go_version: ["1.15", "1.16"]
           filters:
-            branches:
-              ignore: master
+            <<: *filters-branch
 
   Pre-release:
     jobs:
@@ -140,7 +142,7 @@ workflows:
       - bindata:
           filters: &filters-release
             branches:
-              only: master
+              ignore: /.*/
             tags:
               only: /^v.*/
       - build:
