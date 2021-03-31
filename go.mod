@@ -1,6 +1,6 @@
 module github.com/jamesog/scan
 
-go 1.14
+go 1.16
 
 require (
 	cloud.google.com/go v0.57.0 // indirect
