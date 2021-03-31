@@ -102,23 +102,7 @@ jobs:
             ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete <<# parameters.untagged >>-prerelease <</ parameters.untagged>>${VERSION} ./.build/
 
 workflows:
-  Build:
-    when:
-      and:
-        - not: << pipeline.git.tag >>
-        - not:
-            equal: [ master, << pipeline.git.branch >> ]
-    jobs:
-      - bindata
-      - build:
-          requires:
-            - bindata
-          matrix:
-            parameters:
-              go_version: ["1.15", "1.16"]
-  Build and upload:
-    when:
-      equal: [ master, << pipeline.git.branch >> ]
+  build_and_upload:
     jobs:
       - bindata
       - build:
