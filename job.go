@@ -31,7 +31,7 @@ func (app *App) newJob(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, ok := session.Values["user"]; !ok {
 			data := jobData{indexData: indexData{URI: r.RequestURI}}
-			tmpl.ExecuteTemplate(w, "job", data)
+			app.tmpl.ExecuteTemplate(w, "job", data)
 			return
 		}
 		v := session.Values["user"]
@@ -113,7 +113,7 @@ func (app *App) newJob(w http.ResponseWriter, r *http.Request) {
 		Jobs:  jobs,
 	}
 
-	tmpl.ExecuteTemplate(w, "job", data)
+	app.tmpl.ExecuteTemplate(w, "job", data)
 }
 
 // Handler for GET /jobs

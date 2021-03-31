@@ -53,7 +53,7 @@ func TestUpdateJob(t *testing.T) {
 func TestJobHandler(t *testing.T) {
 	db := createDB("TestJobHandler")
 	defer db.Close()
-	app := App{db: db}
+	app := setup(db)
 
 	r := httptest.NewRequest("GET", "/job", nil)
 	w := httptest.NewRecorder()
@@ -84,7 +84,7 @@ func TestJobHandler(t *testing.T) {
 func TestJobsHandler(t *testing.T) {
 	db := createDB("TestJobsHandler")
 	defer db.Close()
-	app := App{db: db}
+	app := setup(db)
 
 	r := httptest.NewRequest("GET", "/jobs", nil)
 	w := httptest.NewRecorder()
@@ -104,7 +104,7 @@ func TestJobsHandler(t *testing.T) {
 func TestJobResultsHandler(t *testing.T) {
 	db := createDB("TestJobResultsHandler")
 	defer db.Close()
-	app := App{db: db}
+	app := setup(db)
 
 	data := bytes.NewBuffer([]byte(`[{"ip":"192.0.2.1","ports":[{"port":80,"proto":"tcp","status":"open","reason":"syn-ack","ttl":57}]}]`))
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
@@ -19,8 +20,17 @@ import (
 func init() {
 	// We can't go through the OAuth2 login flow in tests
 	authDisabled = true
+}
 
-	setupTemplates()
+func setup(db *sqlite.DB) *App {
+	t := template.New("")
+	t = template.Must(
+		t.New("index.html").Parse(""),
+	)
+	t = template.Must(
+		t.New("job.html").Parse(""),
+	)
+	return &App{db: db, tmpl: t}
 }
 
 func createDB(test string) *sqlite.DB {
@@ -91,7 +101,7 @@ func TestResultData(t *testing.T) {
 func TestIndexHandlerWithoutAuth(t *testing.T) {
 	db := createDB("TestIndexHandlerWithoutAuth")
 	defer db.Close()
-	app := App{db: db}
+	app := setup(db)
 
 	r := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
@@ -107,7 +117,7 @@ func TestIndexHandlerWithoutAuth(t *testing.T) {
 func TestResultsHandler(t *testing.T) {
 	db := createDB("TestResultsHandler")
 	defer db.Close()
-	app := App{db: db}
+	app := setup(db)
 
 	data := bytes.NewBuffer([]byte(`[{"ip":"192.0.2.1","ports":[{"port":80,"proto":"tcp","status":"open","reason":"syn-ack","ttl":57}]}]`))
 
@@ -165,7 +175,7 @@ func TestResultsHandler(t *testing.T) {
 func TestTracerouteHandler(t *testing.T) {
 	db := createDB("TestTracerouteHandler")
 	defer db.Close()
-	app := App{db: db}
+	app := setup(db)
 
 	route := `
 traceroute to 192.0.2.1 (192.0.2.1), 64 hops max, 52 byte packets

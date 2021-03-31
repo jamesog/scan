@@ -36,7 +36,7 @@ func (app *App) adminHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusUnauthorized)
 			session.Save(r, w)
 		}
-		tmpl.ExecuteTemplate(w, "index", data)
+		app.tmpl.ExecuteTemplate(w, "index", data)
 		return
 	}
 	v := session.Values["user"]
@@ -88,7 +88,7 @@ func (app *App) adminHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	tmpl.ExecuteTemplate(w, "admin", data)
+	app.tmpl.ExecuteTemplate(w, "admin", data)
 }
 
 var (

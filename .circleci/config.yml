@@ -5,25 +5,6 @@ orbs:
   go: circleci/go@1.6.0
 
 jobs:
-  bindata:
-    executor:
-      name: go/default
-      tag: '1.16'
-
-    steps:
-      - checkout
-      - run:
-          name: Install go-bindata
-          command: |
-            go get github.com/go-bindata/go-bindata/...
-      - run:
-          name: Generate bindata.go
-          command: go generate -x
-      - persist_to_workspace:
-          root: .
-          paths:
-            - "bindata.go"
-
   build:
     parameters:
       go_version:
@@ -41,8 +22,6 @@ jobs:
     steps:
       - checkout
       - go/mod-download-cached
-      - attach_workspace:
-          at: .
       - run:
           name: Install SQLite
           command: |
@@ -97,32 +76,22 @@ jobs:
 workflows:
   Branch builds:
     jobs:
-      - bindata:
+      - build:
+          matrix:
+            parameters:
+              go_version: ["1.16"]
           filters: &filters-branch
             branches:
               ignore: master
-      - build:
-          requires:
-            - bindata
-          matrix:
-            parameters:
-              go_version: ["1.15", "1.16"]
-          filters:
-            <<: *filters-branch
 
   Release:
     jobs:
-      - bindata:
+      - build:
           filters: &filters-release
             branches:
               ignore: /.*/
             tags:
               only: /^v.*/
-      - build:
-          requires:
-            - bindata
-          filters:
-            <<: *filters-release
       - hold:
           type: approval
           requires:
