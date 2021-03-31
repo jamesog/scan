@@ -102,7 +102,7 @@ jobs:
             ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete <<# parameters.untagged >>-prerelease <</ parameters.untagged>>${VERSION} ./.build/
 
 workflows:
-  build_and_upload:
+  Build and release:
     jobs:
       - bindata
       - build:
