@@ -80,14 +80,7 @@ jobs:
           path: .build
           destination: .
 
-  upload:
-    parameters:
-      # N.B. this is untagged rather than tagged because the <<# >> syntax doesn't allow negation
-      untagged:
-        description: Is this a tagged release?
-        type: boolean
-        default: true
-
+  release:
     docker:
       - image: cibuilds/github:0.13
 
@@ -96,10 +89,10 @@ jobs:
       - attach_workspace:
           at: .
       - run:
-          name: Publish <<# parameters.untagged >>pre-<</ parameters.untagged>>release to GitHub
+          name: Publish release to GitHub
           command: |
             VERSION=${CIRCLECI_TAG:-$(git describe --always)}
-            ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete <<# parameters.untagged >>-prerelease <</ parameters.untagged>>${VERSION} ./.build/
+            ghr -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./.build/
 
 workflows:
   Branch builds:
@@ -117,26 +110,6 @@ workflows:
           filters:
             <<: *filters-branch
 
-  Pre-release:
-    jobs:
-      - bindata:
-          filters: &filters-prerelease
-            branches:
-              only: master
-            tags:
-              ignore: /.*/
-      - build:
-          requires:
-            - bindata
-          filters:
-            <<: *filters-prerelease
-      - upload:
-          untagged: true
-          requires:
-            - build
-          filters:
-            <<: *filters-prerelease
-
   Release:
     jobs:
       - bindata:
@@ -150,9 +123,14 @@ workflows:
             - bindata
           filters:
             <<: *filters-release
-      - upload:
-          untagged: false
+      - hold:
+          type: approval
           requires:
             - build
+          filters:
+            <<: *filters-release
+      - release:
+          requires:
+            - hold
           filters:
             <<: *filters-release
