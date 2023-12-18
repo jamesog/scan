@@ -12,6 +12,6 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/pressly/goose v2.2.0+incompatible
 	github.com/prometheus/client_golang v1.11.1
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/crypto v0.17.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 )
